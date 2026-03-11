@@ -45,6 +45,13 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     private int heartbeatInterval;
     private Connection dbConnection = null;
 
+    // Reconnection backoff state
+    private static final long BACKOFF_INITIAL_MS = 1000;       // 1 second
+    private static final long BACKOFF_MAX_MS = 5 * 60 * 1000;  // 5 minutes
+    private static final double BACKOFF_MULTIPLIER = 2.0;
+    private long currentBackoffMs = 0;
+    private long lastConnectionFailureTime = 0;
+
 
     public EventLoggerDriver() {
         super("EventLogger");
@@ -277,8 +284,11 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
 
     /**
      * Gets or creates a database connection. Reuses existing connection if still valid.
+     * Applies exponential backoff (1s, 2s, 4s, ... up to 5min) on repeated connection failures
+     * to avoid hammering an unavailable database. Backoff resets on successful connection.
      */
     private synchronized Connection getConnection() throws SQLException {
+        // Check if existing connection is still usable
         if (dbConnection != null && !dbConnection.isClosed())
         {
             try
@@ -292,12 +302,56 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
                 tracer.trace("Existing connection invalid, creating new one", 2);
             }
         }
+
+        // Enforce backoff delay if we've had recent failures
+        if (currentBackoffMs > 0)
+        {
+            long elapsed = System.currentTimeMillis() - lastConnectionFailureTime;
+            if (elapsed < currentBackoffMs)
+            {
+                long waitMs = currentBackoffMs - elapsed;
+                tracer.trace("Connection backoff: waiting " + (waitMs / 1000) + "s before retry", 1);
+                try
+                {
+                    Thread.sleep(waitMs);
+                } catch (InterruptedException e)
+                {
+                    Thread.currentThread().interrupt();
+                    throw new SQLException("Interrupted during connection backoff", "08000");
+                }
+            }
+        }
+
+        // Attempt connection
         String url = "jdbc:postgresql://" + authParams.authenticationContext;
         String user = authParams.authenticationId;
         String password = authParams.applicationPassword;
-        dbConnection = DriverManager.getConnection(url, user, password);
-        tracer.trace("New database connection established", 2);
-        return dbConnection;
+        try
+        {
+            dbConnection = DriverManager.getConnection(url, user, password);
+            // Success — reset backoff
+            if (currentBackoffMs > 0)
+            {
+                tracer.trace("Database connection restored after backoff", 0);
+            }
+            currentBackoffMs = 0;
+            lastConnectionFailureTime = 0;
+            tracer.trace("New database connection established", 2);
+            return dbConnection;
+        } catch (SQLException e)
+        {
+            // Advance backoff for next attempt
+            lastConnectionFailureTime = System.currentTimeMillis();
+            if (currentBackoffMs == 0)
+            {
+                currentBackoffMs = BACKOFF_INITIAL_MS;
+            } else
+            {
+                currentBackoffMs = Math.min((long) (currentBackoffMs * BACKOFF_MULTIPLIER), BACKOFF_MAX_MS);
+            }
+            tracer.trace("Connection failed, next retry backoff: " + (currentBackoffMs / 1000) + "s", 1);
+            throw e;
+        }
     }
 
     /**
