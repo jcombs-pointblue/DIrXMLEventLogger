@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?><driver-configuration dn="cn=EventLogger,cn=driverset1,o=system" driver-set-dn="cn=driverset1,o=system" name="EventLogger">
+	<packages/>
+	<attributes>
+		<configuration-manifest>
+			<manifest/>
+		</configuration-manifest>
+		<driver-filter-xml>
+			<filter>
+				<filter-class class-name="User" publisher="ignore" publisher-create-homedir="true" publisher-track-template-member="true" subscriber="sync">
+					<filter-attr attr-name="Surname" merge-authority="default" publisher="ignore" publisher-optimize-modify="true" subscriber="sync"/>
+					<filter-attr attr-name="Given Name" merge-authority="default" publisher="ignore" publisher-optimize-modify="true" subscriber="sync"/>
+					<filter-attr attr-name="DirXML-EntitlementRef" merge-authority="edir" publisher="ignore" publisher-optimize-modify="true" subscriber="sync"/>
+					<filter-attr attr-name="nspmDistributionPassword" merge-authority="default" publisher="ignore" publisher-optimize-modify="true" subscriber="sync"/>
+					<filter-attr attr-name="Internet EMail Address" merge-authority="default" publisher="ignore" publisher-optimize-modify="true" subscriber="sync"/>
+					<filter-attr attr-name="carLicense" merge-authority="default" publisher="ignore" publisher-optimize-modify="true" subscriber="sync"/>
+				</filter-class>
+			</filter>
+		</driver-filter-xml>
+		<driver-image>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</driver-image>
+		<log-events inherit="true"/>
+		<trace-file value="/opt/novell/trace/el.trace"/>
+		<trace-size-limit value="100000"/>
+		<trace-level value="10"/>
+		<driver-trace-level inherit="true"/>
+		<log-limit inherit="true"/>
+		<log-events-type inherit="true"/>
+		<java-module value="com.pointblue.idm.eventlogger.EventLoggerDriver"/>
+		<trace-name value="EvLog"/>
+		<policy-linkage>
+			<linkage-item dn="cn=Veto unsupported events,cn=Subscriber,cn=EventLogger,cn=driverset1,o=system" order="0" policy-set="4" policy-set-name="Subscriber Event"/>
+			<linkage-item dn="cn=Send Event to shim,cn=Subscriber,cn=EventLogger,cn=driverset1,o=system" order="1" policy-set="4" policy-set-name="Subscriber Event"/>
+		</policy-linkage>
+		<driver-cache-limit value="0"/>
+		<shim-auth-id value="postgres"/>
+		<shim-auth-password-query/>
+		<shim-auth-server value="192.168.103.7:5432/idmEvent"/>
+		<driver-password-query/>
+		<driver-start-option no-resync="false" value="1"/>
+		<shim-config-info-xml>
+			<driver-config name="Beeline">
+				<driver-options>
+					<configuration-values>
+						<definitions>
+							<definition display-name="Store Event XML" name="storeXML" type="string">
+								<description>When true, the full XML doc will be stored in the database</description>
+								<value>true</value>
+							</definition>
+							<definition display-name="Database Table Name" name="tableName" type="string">
+								<description>The table to stor the data. If blank, the default, 'dxmlevent', will be used.</description>
+								<value>dxmlevent</value>
+							</definition>
+						</definitions>
+					</configuration-values>
+				</driver-options>
+				<subscriber-options>
+					<configuration-values>
+						<definitions/>
+					</configuration-values>
+				</subscriber-options>
+				<publisher-options>
+					<configuration-values>
+						<definitions>
+							<definition display-name="Publisher heartbeat interval" name="pub-heartbeat-interval" type="integer">
+								<description>Configures the driver to send a periodic status message on the Publisher channel when there has been no Publisher traffic for the given number of minutes.</description>
+								<value>5</value>
+							</definition>
+						</definitions>
+					</configuration-values>
+				</publisher-options>
+			</driver-config>
+		</shim-config-info-xml>
+		<global-engine-values>
+			<configuration-values>
+				<definitions>
+					<definition display-name="Subscriber channel retry interval in seconds" display-name-ref="ecnm_rint" name="dirxml.engine.retry-interval" range-lo="1" type="integer">
+						<description description-ref="ecds_rint">The subscriber channel retry interval controls how frequently the DirXML Engine will retry the processing of a cached transaction after the application shim's Subscriber object returns a retry status.</description>
+						<value>30</value>
+					</definition>
+					<definition display-name="Qualified form for DN-syntax attribute values" display-name-ref="ecnm_dnvf" name="dirxml.engine.qualified-dn-values" type="boolean">
+						<description description-ref="ecds_dnvf">The qualified form for DN-syntax attribute values controls whether values for DN-syntax attribute values are presented in unqualified slash form or qualified slash form. A "true" setting means the values are presented in qualified form.</description>
+						<value>false</value>
+					</definition>
+					<definition display-name="Qualified form for rename events" display-name-ref="ecnm_refm" name="dirxml.engine.qualified-rename-values" type="boolean">
+						<description description-ref="ecds_refm">The qualified form for rename events controls whether the new-name portion of rename events coming from the Identity Vault are presented to the Subscriber channel with type qualifier(s) (e.g. CN=). A "true" setting means the names are presented in qualified form.</description>
+						<value>false</value>
+					</definition>
+					<definition display-name="Maximum eDirectory replication wait time in seconds" display-name-ref="ecnm_mrpw" name="dirxml.engine.max-replication-wait" range-lo="1" type="integer">
+						<description description-ref="ecds_mrpw">The maximum eDirectory replication wait time controls the maximum time that the DirXML Engine will wait for a particular change to replicate between the local replica and a remote replica. This only affects operations where the DirXML Engine is required to contact a remote eDirectory server in the same tree to perform an operation and may need to wait until some change has replicated to or from the remote server before the operation can be completed (e.g. object moves when the DirXML server does not hold the master replica of the moved object ;file system rights operations for Users created from a template.)</description>
+						<value>180</value>
+					</definition>
+					<definition display-name="Use non-compliant backwards-compatible mode for XSLT" display-name-ref="ecnm_xbcm" name="dirxml.engine.xslt-bc-mode" type="boolean">
+						<description description-ref="ecds_xbcm">This control sets the XSLT processor used by the DirXML Engine to a backwards-compatible mode. The backwards-compatible mode causes the XSLT processor to use one or more behaviors that are not XPath 1.0 and/or XSLT 1.0 standards-compliant. This is done in the interest of backwards-compatiblity with existing DirXML stylesheets that depend on the non-standard behavior(s). 
+ 
+ In particular: 
+ 
+ The behavior of the XPath "!=" operator when one operand is a node-set and the other operand is other than a node-set is incorrect in DirXML releases up to and including DirXML 2.0 (Novell Identity Manager 2.0). This behavior has been corrected; however, the corrected behavior is disabled by default through this control in favor of backwards-compatibility with existing DirXML stylesheets.</description>
+						<value>true</value>
+					</definition>
+					<definition display-name="Maximum application objects to migrate at once" display-name-ref="ecnm_mxappm" name="dirxml.engine.max-migrate-app-count" range-lo="1" type="integer">
+						<description description-ref="ecds_mxappm">This control is used to limit the number of application objects that the DirXML Engine will request from an application during a single query that is performed as part of a "migrate objects from application" operation. 
+ 
+ If "java.lang.OutOfMemoryError" errors are encountered during a migrate from application operation then this number should be set lower than the default. 
+ 
+ Note that this control does not limit the number of application objects that can be migrated; it merely limits the "batch size".</description>
+						<value>50</value>
+					</definition>
+					<definition display-name="Set creatorsName on objects created in Identity Vault" display-name-ref="ecnm_scrnm" name="dirxml.engine.set-creators-name" type="boolean">
+						<description description-ref="ecds_scrnm">This control is used by the DirXML Engine to determine if the creatorsName attribute should be set to the DN of this driver on all objects created in the Identity Vault by this driver.
+ 
+ Setting the creatorsName attribute allows for easily identifying objects created by this driver, but also carries a performance penalty. If not set, the creatorsName attribute will default to the DN of the NCP Server object that is hosting the driver.</description>
+						<value>false</value>
+					</definition>
+					<definition display-name="Write pending associations" display-name-ref="ecnm_pass" name="dirxml.engine.use-pending-association" type="boolean">
+						<description description-ref="ecds_pass">This control determines whether the DirXML Engine will write a pending association on an object during subscriber channel processing.
+ 
+ Writing a pending association confers little or no benefit but does incur a performance penalty. Nevertheless, the option exists to turn it on for backward compatibility.</description>
+						<value>false</value>
+					</definition>
+					<definition display-name="Use password event values" display-name-ref="ecnm_pevvl" name="dirxml.engine.use-password-event-values" type="boolean">
+						<description description-ref="ecds_pevvl">This control determines the source of the value reported for the nspmDistributionPassword attribute for subscriber channel add and modify events.
+ 
+ Setting the control to false means that the current value of nspmDistributionPassword is obtained and reported as the value of the attribute event. This means that only the current password value is available. This is the default behavior.
+ 
+ Setting the control to true means that the value recorded with the eDirectory event will be decrypted and reported as the value of the attribute event. This means that both the old password value (if it exists) and the replacement password value at the time of the event are available. This is useful for synchronizing passwords to certain applications that require the old password to enable setting a new password.</description>
+						<value>false</value>
+					</definition>
+					<definition display-name="Enable password synchronization status reporting" display-name-ref="ecnm_pss" name="dirxml.engine.pwd-sync-status" type="boolean">
+						<description description-ref="ecds_pss">This control determines whether the DirXML Engine will report the status of subscriber channel password change events. 
+ 
+ Reporting the status of subscriber channel password change events allows applications such as the Identity Manager User Application to monitor the synchronization progress of a password change that should be synchronized to the connected application.</description>
+						<value>false</value>
+					</definition>
+					<definition display-name="Combine values from template object with those from add operation" display-name-ref="ecnm_ctv" name="dirxml.engine.combine-template-values" type="boolean">
+						<description description-ref="ecds_ctv">This control determines how the DirXML Engine will use values from a template object when the template is used to create objects in the Identity Vault. Setting the control to true causes multi-valued attribute values from the template to be used in addition to those values for the same attribute that are  specified in the add operation. Setting the control to false causes the value(s) from the template to be ignored if there are values for the same attribute specified in the add operation.</description>
+						<value>true</value>
+					</definition>
+					<definition display-name="Allow event loopback from publisher to subscriber channel" display-name-ref="ecnm_ael" name="dirxml.engine.allow-event-loopback" type="boolean">
+						<description description-ref="ecds_ael">This control determines whether the DirXML Engine will allow an event to loopback from the publisher channel of a driver to the subscriber channel of the same driver. Setting the control to false means that the loopback of the event from the publisher to the subscriber channel will not be allowed. Setting the control to true means that events would flow from the publisher channel to the subscriber channel of the same driver.  </description>
+						<value>false</value>
+					</definition>
+					<definition display-name="Revert to calculated membership value behavior" display-name-ref="ecnm_cavl" name="dirxml.engine.use-calculated-values" type="boolean">
+						<description description-ref="ecds_cavl">Prior to Identity Manager 3.6 the DirXML Engine retrieved "calculated" values for the attributes "Member" and "Group Membership". The Engine now retrieves static values. This behavior is more generally useful and makes synchronizing Nested Groups possible. Setting this control to true reverts to the pre-3.6 behavior. 
+ 
+ It is possible even with the post-3.6 default behavior to read the calculated values for "Member" and "Group Membership" by using the special attribute names "[pseudo].Member" and "[pseudo].Group Membership".</description>
+						<value>false</value>
+					</definition>
+					<definition display-name="Maximum time to wait for driver shutdown  in seconds" display-name-ref="ecnm_mdst" name="dirxml.engine.max-driver-shutdown-timeout" range-hi="3600" range-lo="5" type="integer">
+						<description description-ref="ecds_mdst">This control determines the maximum time in seconds for which the DirXML Engine will wait for the drivers publisher channel to shutdown. If the driver does not shutdown within the provided time value, then the driver will be terminated by the DirXML Engine.</description>
+						<value>60</value>
+					</definition>
+					<definition display-name="Regular Expression escape meta-characters" display-name-ref="ecnm_reecn" name="dirxml.engine.reg-ex-escape-chars" type="string">
+						<description description-ref="ecds_reecd">This control determines the meta-characters that will be escaped while evaluating regular expressions. If a meta-char is not present in control value then it will not be escaped during local variable expansion containing a regular expression. 
+ 
+ To escape all the regular expression meta-characters, "\,$,^,.,?,*,+,[,],(,),|" should be added as the value. 
+ 
+ If a meta-character need not be escaped, then remove it from the control value. 
+ 
+ The control value should be a valid comma(,) separated list, else errors may be encountered during policy evaluation.</description>
+						<value xml:space="preserve">$</value>
+					</definition>
+					<definition display-name="Retry of Out of Band events" display-name-ref="ecnm_robe" name="dirxml.engine.retry-outofband-event" type="boolean">
+						<description description-ref="ecds_robe">This control determines whether the DirXML Engine will retry an out of band event when the status is a RETRY. Setting the control to false means that the Engine will not retry the Out of Band event on a RETRY status. Setting the control to true means that the Engine will retry the Out of band event on a RETRY status.</description>
+						<value>false</value>
+					</definition>
+					<definition display-name="Use Rhino ECMAScript engine" display-name-ref="ecnm_uree" name="dirxml.engine.rhino-ecma-engine" type="boolean">
+						<description description-ref="ecds_uree">This control determines whether DirXML Engine will use the Rhino ECMAScript engine. DirXML Engine uses Rhino as the default ECMAScript engine.</description>
+						<value>true</value>
+					</definition>
+					<definition display-name="Enable Subscriber Service Channel" display-name-ref="ecnm_essc" name="dirxml.engine.enable-subsvc-channel" type="boolean">
+						<description description-ref="ecds_essc">This control determines whether the DirXML Engine will send the out of band queries in subscriber service channel. This is applicable only if the driver supports subscriber service channel.If this is set to true, Engine will send the out of band queries in subscriber service channel.</description>
+						<value>true</value>
+					</definition>
+					<definition display-name="Ignore Entitlement Changes of other drivers" display-name-ref="ecnm_ierc" name="dirxml.engine.ignore-entitlement-change" type="boolean">
+						<description description-ref="ecds_ierc">This control is used by the DirXML Engine to either ignore or process the Entitlement Changes of other drivers. If this control is set to true, the Entitlement changes of other drivers will be ignored by this driver. If this contorl is set to false, the Entitlement changes of other drivers will be cached and processed by this driver.</description>
+						<value>true</value>
+					</definition>
+					<definition display-name="Allow Entitlement event loopback from cprs to subscriber channel" display-name-ref="ecnm_acel" name="dirxml.engine.allow-cprs-event-loopback" type="boolean">
+						<description description-ref="ecds_acel">This control determines whether the DirXML Engine will allow an entitlement event generated by cprs assignment to loopback to the subscriber channel of the driver. Setting the control to false means that the loopback of the event from cprs to the subscriber channel will not be allowed.Setting the control to true means that events would flow from the cprs to the subscriber channelof the same driver.</description>
+						<value>false</value>
+					</definition>
+					<definition display-name="Interpret Time as Signed Integer" display-name-ref="ecnm_itsi" name="dirxml.engine.interpret-time-signed" type="boolean">
+						<description description-ref="ecds_itsi">This control determines whether the DirXML Engine will interpret a time value as signed or unsigned integer. If this is set to true, Engine will support time values from 1902 to 2037. If this is set to false, Engine will support time values from 1970 to 2106. </description>
+						<value>true</value>
+					</definition>
+					<definition display-name="Optimize Modify on Publisher Merge" display-name-ref="ecnm_omom" name="dirxml.engine.optimize-modify-merge" type="boolean">
+						<description description-ref="ecds_omom">This control determines whether the DirXML Engine will perform optimize modify on publisher merge. If this is set to true, Engine will perform optimize modify on Publisher Merge. </description>
+						<value>true</value>
+					</definition>
+					<definition display-name="Remove Manual/Migrate Associations" display-name-ref="ecnm_rmma" name="dirxml.engine.remove-manual-migrate-assoc" type="boolean">
+						<description description-ref="ecds_rmma">This control determines whether the DirXML Engine will remove the manual/migrate association states. If this is set to true, Engine will remove the manual/migrate association once the resync event is triggered. </description>
+						<value>true</value>
+					</definition>
+					<definition display-name="Retrieve Application Schema" display-name-ref="ecnm_rasc" name="dirxml.engine.retrieve-application-schema" type="boolean">
+						<description description-ref="ecds_rasc">This control determines whether the DirXML Engine will query for application schema. For some drivers like generic null where application does not have any schema, this control can be set to false so that Engine does not query for application schema.</description>
+						<value>true</value>
+					</definition>
+					<definition display-name="Include driver filter in Subscriber initialization document" display-name-ref="ecnm_ifis" name="dirxml.engine.include-filter-in-sub" type="boolean">
+						<description description-ref="ecds_ifis">This control determines whether DirXML Engine will pass the Driver filter XML as part of the subscriber initialization document. If set to true, Engine will add driver filter document inside the driver subscriber initialization document. The default value of this setting is false. The filter document added to subscriber initialization document includes 2 additional attributes which are not found in the traditional filter document. These are nds-attr-name and nds-class-name which correspond to the names of the attributes and classes respectively as per NDS namespace.</description>
+						<value>true</value>
+					</definition>
+				</definitions>
+			</configuration-values>
+		</global-engine-values>
+		<global-config-values>
+			<configuration-values>
+				<definitions/>
+			</configuration-values>
+		</global-config-values>
+		<application-schema>
+			<schema-def>
+				<class-def class-name="assignment">
+					<attr-def attr-name="adminCostCenter" multi-valued="false" type="string"/>
+					<attr-def attr-name="adminCostCenter:costCenterId" multi-valued="false" type="string"/>
+					<attr-def attr-name="adminCostCenter:costCenterNumber" multi-valued="false" type="string"/>
+					<attr-def attr-name="adminCostCenter:ouCode" multi-valued="false" type="string"/>
+					<attr-def attr-name="assignmentDetailId" multi-valued="false" type="string"/>
+					<attr-def attr-name="assignmentId" multi-valued="false" type="string"/>
+					<attr-def attr-name="assignmentNumber" multi-valued="false" type="string"/>
+					<attr-def attr-name="billToCostCenter" multi-valued="false" type="string"/>
+					<attr-def attr-name="billToCostCenter:costCenterId" multi-valued="false" type="string"/>
+					<attr-def attr-name="billToCostCenter:costCenterNumber" multi-valued="false" type="string"/>
+					<attr-def attr-name="billToCostCenter:ouCode" multi-valued="false" type="string"/>
+					<attr-def attr-name="endDate" multi-valued="false" type="string"/>
+					<attr-def attr-name="hiringManager" multi-valued="false" type="string"/>
+					<attr-def attr-name="hiringManager:userId" multi-valued="false" type="string"/>
+					<attr-def attr-name="hiringManager:userName" multi-valued="false" type="string"/>
+					<attr-def attr-name="jobTitle" multi-valued="false" type="string"/>
+					<attr-def attr-name="jobTitle:jobTitleId" multi-valued="false" type="string"/>
+					<attr-def attr-name="jobTitle:jobTitleName" multi-valued="false" type="string"/>
+					<attr-def attr-name="physicalWorkLocation" multi-valued="false" type="string"/>
+					<attr-def attr-name="physicalWorkLocation:locationCode" multi-valued="false" type="string"/>
+					<attr-def attr-name="physicalWorkLocation:locationId" multi-valued="false" type="string"/>
+					<attr-def attr-name="procurementType" multi-valued="false" type="string"/>
+					<attr-def attr-name="startDate" multi-valued="false" type="string"/>
+					<attr-def attr-name="statusType" multi-valued="false" type="string"/>
+					<attr-def attr-name="substatus" multi-valued="false" type="string"/>
+					<attr-def attr-name="supplier" multi-valued="false" type="string"/>
+					<attr-def attr-name="supplier:supplierCode" multi-valued="false" type="string"/>
+					<attr-def attr-name="supplier:supplierId" multi-valued="false" type="string"/>
+					<attr-def attr-name="taxLocation" multi-valued="false" type="string"/>
+					<attr-def attr-name="taxLocation:locationCode" multi-valued="false" type="string"/>
+					<attr-def attr-name="taxLocation:locationId" multi-valued="false" type="string"/>
+					<attr-def attr-name="worker" multi-valued="false" type="string"/>
+					<attr-def attr-name="worker:resourceId" multi-valued="false" type="string"/>
+					<attr-def attr-name="worker:userId" multi-valued="false" type="string"/>
+					<attr-def attr-name="worker:userName" multi-valued="false" type="string"/>
+				</class-def>
+				<class-def class-name="user">
+					<attr-def attr-name="businessPhone" multi-valued="false" type="string"/>
+					<attr-def attr-name="costCenterNumber" multi-valued="false" type="string"/>
+					<attr-def attr-name="email" multi-valued="false" type="string"/>
+					<attr-def attr-name="fax" multi-valued="false" type="string"/>
+					<attr-def attr-name="firstName" multi-valued="false" type="string"/>
+					<attr-def attr-name="homePhone" multi-valued="false" type="string"/>
+					<attr-def attr-name="languageCode" multi-valued="false" type="string"/>
+					<attr-def attr-name="lastName" multi-valued="false" type="string"/>
+					<attr-def attr-name="locationCode" multi-valued="false" type="string"/>
+					<attr-def attr-name="managerUserName" multi-valued="false" type="string"/>
+					<attr-def attr-name="mobilePhone" multi-valued="false" type="string"/>
+					<attr-def attr-name="organizationCode" multi-valued="false" type="string"/>
+					<attr-def attr-name="ouCode" multi-valued="false" type="string"/>
+					<attr-def attr-name="roles" type="string"/>
+					<attr-def attr-name="title" multi-valued="false" type="string"/>
+					<attr-def attr-name="types" type="string"/>
+					<attr-def attr-name="userId" multi-valued="false" naming="true" read-only="true" required="true" type="string"/>
+					<attr-def attr-name="userName" multi-valued="false" naming="true" required="true" type="string"/>
+				</class-def>
+				<class-def class-name="worker">
+					<attr-def attr-name="adminCostCenter" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="assignmentId" read-only="true" type="string"/>
+					<attr-def attr-name="beeLineUniqueID" multi-valued="false" naming="true" read-only="true" required="true" type="string"/>
+					<attr-def attr-name="billToCostCenter" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="costCenterNumber" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="email" multi-valued="false" type="string"/>
+					<attr-def attr-name="endDate" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="externalID" multi-valued="false" type="string"/>
+					<attr-def attr-name="firstName" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="hiringManager" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="jobTitle" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="languageCode" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="lastName" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="locationCode" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="organizationCode" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="ouCode" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="physicalWorkLocation" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="startDate" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="statusType" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="taxLocation" multi-valued="false" read-only="true" type="string"/>
+					<attr-def attr-name="userId" multi-valued="false" naming="true" read-only="true" required="true" type="string"/>
+					<attr-def attr-name="userName" multi-valued="false" required="true" type="string"/>
+				</class-def>
+			</schema-def>
+		</application-schema>
+		<pkg-initial-states/>
+	</attributes>
+	<children>
+		<publisher name="Publisher">
+			<attributes/>
+			<children/>
+		</publisher>
+		<subscriber name="Subscriber">
+			<attributes/>
+			<children>
+				<rule name="Veto unsupported events">
+					<policy>
+						<rule>
+							<description>Veto unsupported events</description>
+							<conditions>
+								<and>
+									<if-operation mode="regex" op="not-equal">add|modify|rename|delete|sync</if-operation>
+								</and>
+							</conditions>
+							<actions>
+								<do-veto/>
+							</actions>
+						</rule>
+					</policy>
+				</rule>
+				<rule name="Send Event to shim">
+					<policy>
+						<rule>
+							<description>SET ASSOCIATION</description>
+							<comment xml:space="preserve">Forces driver to bypass synthetic add</comment>
+							<conditions>
+								<and>
+									<if-operation mode="nocase" op="not-equal">add</if-operation>
+								</and>
+							</conditions>
+							<actions>
+								<do-set-op-association>
+									<arg-association>
+										<token-text xml:space="preserve">DUMMY</token-text>
+									</arg-association>
+								</do-set-op-association>
+							</actions>
+						</rule>
+					</policy>
+				</rule>
+			</children>
+		</subscriber>
+		<entitlement-definition name="UserAccount">
+			<entitlement conflict-resolution="priority" description="" display-name="UserAccount"/>
+		</entitlement-definition>
+		<entitlement-definition name="Group">
+			<entitlement conflict-resolution="priority" description="" display-name="Group">
+				<values multi-valued="true"/>
+			</entitlement>
+		</entitlement-definition>
+		<entitlement-definition name="Entitlement">
+			<entitlement conflict-resolution="priority" description="" display-name="Entitlement">
+				<values multi-valued="true"/>
+			</entitlement>
+		</entitlement-definition>
+		<entitlement-definition name="SafePermission">
+			<entitlement conflict-resolution="priority" description="" display-name="SafePermission">
+				<values multi-valued="true"/>
+			</entitlement>
+		</entitlement-definition>
+	</children>
+	<global-config-values>
+		<configuration-values>
+			<definitions display-name="Common Settings">
+				<header display-name="Common Settings"/>
+				<definition display-name="User Container" dn-space="dirxml" dn-type="slash" name="idv.dit.data.users" type="dn">
+					<value>data\users</value>
+				</definition>
+				<definition display-name="Group Container" dn-space="dirxml" dn-type="slash" name="idv.dit.data.groups" type="dn">
+					<value>data\groups</value>
+				</definition>
+				<definition display-name="IAM Team Email Address" name="IAMTeamEmail" type="string">
+					<description>email address for notifications to the IAM team</description>
+					<value>identitymanager@amica.com</value>
+				</definition>
+			</definitions>
+		</configuration-values>
+	</global-config-values>
+</driver-configuration>
