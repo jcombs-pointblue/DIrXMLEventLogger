@@ -1,0 +1,25 @@
+<nds dtdversion="4.0" ndsversion="8.x">
+    <source>
+        <product edition="Advanced" version="4.7.2.0">DirXML</product>
+        <contact>NetIQ Corporation</contact>
+    </source>
+    <input>
+        <modify cached-time="20240418184404.607Z" class-name="User"
+                event-id="idm-ig4#20240418184404#1#1:98b86d23-93ca-4689-8c4b-236db898ca93"
+                qualified-src-dn="O=data\OU=users\CN=test1" src-dn="\IDM_IG4_TREE\data\users\test1"
+                src-entry-id="33624" timestamp="1713465844#2">
+            <association state="associated">136</association>
+            <modify-attr attr-name="safePermissions">
+                <remove-value>
+                    <value type="string">IGA-TEST2:listAccounts</value>
+                </remove-value>
+                <add-value>
+                    <value type="string">IGA-TEST2:renameAccounts</value>
+                </add-value>
+                <add-value>
+                    <value type="string">IGA-TEST2:manageSafe</value>
+                </add-value>
+            </modify-attr>
+        </modify>
+    </input>
+</nds>

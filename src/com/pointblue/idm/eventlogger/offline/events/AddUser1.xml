@@ -1,0 +1,37 @@
+<nds dtdversion="4.0" ndsversion="8.x">
+<source>
+    <product edition="Advanced" version="4.8.7.0000">DirXML</product>
+    <contact>NetIQ Corporation</contact>
+</source>
+<input>
+<add cached-time="20240426145050.283Z" class-name="User" event-id="LDSEDIR71#20240426145050#1#1:c010c23b-858f-4008-b25a-3bc210c08f85" qualified-src-dn="O=data\OU=users\CN=U888005" src-dn="\ID-DEV-VAULT\data\users\U888005" src-entry-id="59036" timestamp="1714143050#2">
+    <add-attr attr-name="userid">
+        <value naming="true" timestamp="1704234769#54" type="string">U888005</value>
+    </add-attr>
+    <add-attr attr-name="first_name">
+        <value timestamp="1704234769#17" type="string">Super</value>
+    </add-attr>
+    <add-attr attr-name="primary_email">
+        <value timestamp="1714142799#1" type="string">u888005@test.jfw.com</value>
+    </add-attr>
+    <add-attr attr-name="location_id">
+        <value type="string">22000169961</value>
+    </add-attr>
+    <add-attr attr-name="reporting_manager_id">
+        <value type="string"/>
+    </add-attr>
+    <add-attr attr-name="work_phone_number">
+        <value timestamp="1704234769#33" type="teleNumber">123-226-7893</value>
+    </add-attr>
+    <add-attr attr-name="last_name">
+        <value timestamp="1704234769#23" type="string">Man</value>
+    </add-attr>
+    <add-attr attr-name="job_title">
+        <value timestamp="1706724594#2" type="string">Devops Manager z</value>
+    </add-attr>
+    <add-attr attr-name="employee_id">
+        <value timestamp="1704234769#13" type="string">888005</value>
+    </add-attr>
+</add>
+</input>
+        </nds>

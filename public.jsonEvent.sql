@@ -1,0 +1,1 @@
+SELECT (eventjson::jsonb) #>> (ARRAY['attributes','last_name','value']::text[]) AS last_name FROM public."dxmlevent";

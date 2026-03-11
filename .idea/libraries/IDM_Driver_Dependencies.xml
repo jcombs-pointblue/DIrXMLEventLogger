@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="IDM Driver Dependencies">
+    <CLASSES>
+      <root url="file://$USER_HOME$/Dev/IDM Driver Dependencies" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+    <jarDirectory url="file://$USER_HOME$/Dev/IDM Driver Dependencies" recursive="false" />
+  </library>
+</component>

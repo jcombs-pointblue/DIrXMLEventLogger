@@ -1,0 +1,17 @@
+log every event that passes the filter to either:
+
+1. A file that roles as needed
+2. A relational DB - postgres using XML data type
+                eventId, Timestamp, object GUID?, sourceDN
+                    maybe driver if the event ID includes it
+3. An Event DB
+4. A message queue
+
+Need to be able to key off of src-dn. dest-dn, association, event type
+    -any XML native DB?
+
+maybe implement a way for other drivers to log input and output docs.
+
+Add debugging of engine as well, startup params memory logging, etc
+
+Could have each driver send input etc to a similar DB?

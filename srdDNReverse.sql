@@ -1,0 +1,1 @@
+SELECT * FROM public.dxmlevent WHERE REVERSE("srcdn") LIKE '500888U\\%';

@@ -1,0 +1,11 @@
+<nds dtdversion="1.0" ndsversion="8.5">
+    <source>
+        <product version="1.0">DirXML</product>
+        <contact>Novell, Inc.</contact>
+    </source>
+    <input>
+        <delete class-name="User">
+            <association>113</association>
+        </delete>
+    </input>
+</nds>

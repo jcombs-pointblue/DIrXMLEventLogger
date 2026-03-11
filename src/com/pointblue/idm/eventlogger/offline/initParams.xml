@@ -1,0 +1,26 @@
+<nds dtdversion="4.0" ndsversion="8.x">
+    <source>
+        <product edition="Advanced" version="4.8.5.0">DirXML</product>
+        <contact>NetIQ Corporation</contact>
+    </source>
+    <input>
+        <init-params src-dn="\IP_10_200_2_47_TREE\system\driverset1\EventLogger">
+            <authentication-info>
+                <server>localhost:5432/idmEvent</server>
+                <password>mysecretpassword</password>
+                <user>postgres</user>
+            </authentication-info>
+
+            <subscriber-options>
+            </subscriber-options>
+            <driver-options>
+
+            </driver-options>
+
+
+            <publisher-options>
+            </publisher-options>
+
+        </init-params>
+    </input>
+</nds>

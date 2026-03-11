@@ -1,0 +1,12 @@
+<component name="ArtifactManager">
+  <artifact name="DIrXMLEventLogger:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/DIrXMLEventLogger_jar</output-path>
+    <root id="root">
+      <element id="archive" name="DIrXMLEventLogger.jar">
+        <element id="module-output" name="DIrXMLEventLogger" />
+      </element>
+      <element id="library" level="project" name="IDM Driver Dependencies" />
+      <element id="library" level="project" name="lib" />
+    </root>
+  </artifact>
+</component>

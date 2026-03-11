@@ -1,0 +1,23 @@
+<nds dtdversion="4.0" ndsversion="8.x">
+    <source>
+        <product edition="Advanced" version="4.7.2.0">DirXML</product>
+        <contact>NetIQ Corporation</contact>
+    </source>
+    <input>
+        <modify class-name="User" event-id="su" from-merge="false" qualified-src-dn="hh" src-dn="\AN" src-entry-id="53880">
+            <association>113</association>
+            <modify-attr attr-name="displayName">
+                <remove-all-values/>
+                <add-value>
+                    <value timestamp="1264171756#22" type="string">dp2</value>
+                </add-value>
+            </modify-attr>
+            <modify-attr attr-name="entitlements">
+                <add-value>
+                    <value timestamp="1264171756#22" type="string">AddSafes</value>
+                </add-value>
+            </modify-attr>
+        </modify>
+    </input>
+</nds>
+

@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Main-Class: 
+Class-Path: XDS.jar nxsl.jar dhutil.jar dirxml.jar jclient.jar xp-1.0.0.
+ jar dirxml_misc.jar mapdb-3.0.9.jar httpcore-4.4.16.jar CommonDriverShi
+ m.jar httpclient-4.5.14.jar commons-codec-1.15.jar commons-logging-1.2.
+ jar commons-lang3-3.12.0.jar postgresql-42.7.7.jar
+
