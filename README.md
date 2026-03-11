@@ -84,7 +84,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO eventlogger_
 
 1. Compile the Java source files against the Identity Manager driver SDK JARs (dirxml_misc.jar, nxsl.jar, etc.) and the PostgreSQL JDBC driver (`lib/postgresql-42.7.7.jar`).
 2. Package the compiled classes into `DIrXMLEventLogger.jar`.
-3. Deploy the JAR to the Identity Manager server's driver classpath (typically `/opt/novell/eDirectory/lib/dirxml/classes/`
+3. Deploy the JAR to the Identity Manager server's driver classpath (typically `/opt/novell/eDirectory/lib/dirxml/classes/` and restart eDirectory
 4. Deploy `lib/postgresql-42.7.7.jar` to the same classpath location if not already present.
 
 ### Importing the driver in Designer
@@ -93,6 +93,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO eventlogger_
 2. Right-click on the driver set where you want to add the Event Logger.
 3. Select **Import** and choose `EventLogger.xml` from the project root.
 4. This creates a pre-configured driver object with the correct Java class name and default settings.
+5.  Modify the driver filter to include the attributes ( or classes) you need. 
 
 ### Driver Configuration
 
