@@ -75,6 +75,13 @@ public class CommonImpl {
      */
     String driverRDN;
 
+    /**
+     * The full distinguished name of the driver object in eDirectory.
+     * Set during initialization from the {@code src-dn} attribute of the
+     * {@code init-params} element. Used for PolicyLogger registry keying.
+     */
+    String driverDN = "";
+
 
 
     /**
@@ -456,6 +463,7 @@ public class CommonImpl {
             {
                 String dn = initParams.getAttributeNS(null, "src-dn");
                 this.driverRDN = getRDN(dn);
+                this.driverDN = dn;
             }
         }
     }

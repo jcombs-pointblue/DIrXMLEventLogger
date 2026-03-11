@@ -46,6 +46,16 @@
                 {% endfor %}
             </select>
 
+            {% if src_drivers %}
+            <label>Driver:</label>
+            <select name="src_driver">
+                <option value="">All</option>
+                {% for sd in src_drivers %}
+                <option value="{{ sd }}" {% if sd == src_driver %}selected{% endif %}>{{ sd.split('\\')[-1] if sd else sd }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+
             <label>From:</label>
             <input type="date" name="date_from" value="{{ date_from }}">
 

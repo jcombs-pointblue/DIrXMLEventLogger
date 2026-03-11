@@ -37,11 +37,11 @@
 {% if pages > 1 %}
 <div class="pagination">
     {% if page > 1 %}
-    <a href="/timeline?srcdn={{ srcdn|urlencode }}&event_type={{ event_type }}&class_name={{ class_name }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page - 1 }}">Prev</a>
+    <a href="/timeline?srcdn={{ srcdn|urlencode }}&event_type={{ event_type }}&class_name={{ class_name }}&src_driver={{ src_driver }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page - 1 }}">Prev</a>
     {% endif %}
     <span class="current">Page {{ page }} of {{ pages }}</span>
     {% if page < pages %}
-    <a href="/timeline?srcdn={{ srcdn|urlencode }}&event_type={{ event_type }}&class_name={{ class_name }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page + 1 }}">Next</a>
+    <a href="/timeline?srcdn={{ srcdn|urlencode }}&event_type={{ event_type }}&class_name={{ class_name }}&src_driver={{ src_driver }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page + 1 }}">Next</a>
     {% endif %}
 </div>
 {% endif %}
