@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="stat-grid">
+    <div class="card">
+        <div class="stat-number">{{ "{:,}".format(total) }}</div>
+        <div class="stat-label">Total Events</div>
+    </div>
+    {% for item in by_type %}
+    <div class="card">
+        <div class="stat-number" style="font-size: 1.5rem;">{{ "{:,}".format(item.cnt) }}</div>
+        <div class="stat-label"><span class="badge badge-{{ item.eventtype }}">{{ item.eventtype }}</span></div>
+    </div>
+    {% endfor %}
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+    <div class="card">
+        <h2>Most Active Objects</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Source DN</th>
+                    <th style="text-align: right;">Events</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in most_active %}
+                <tr>
+                    <td>
+                        <a href="/timeline?srcdn={{ item.srcdn|urlencode }}" style="color: var(--accent); text-decoration: none;">
+                            <span class="mono" style="font-size: 0.8rem;">{{ item.srcdn }}</span>
+                        </a>
+                    </td>
+                    <td style="text-align: right;" class="mono">{{ "{:,}".format(item.cnt) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Events by Class</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Class Name</th>
+                    <th style="text-align: right;">Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in by_class %}
+                <tr>
+                    <td>{{ item.classname }}</td>
+                    <td style="text-align: right;" class="mono">{{ "{:,}".format(item.cnt) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if by_day %}
+<div class="card" style="margin-top: 1rem;">
+    <h2>Last 30 Days</h2>
+    <div style="display: flex; align-items: flex-end; gap: 2px; height: 120px; padding-top: 1rem;">
+        {% set max_count = by_day|map(attribute='cnt')|max %}
+        {% for day in by_day %}
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%;">
+            <div style="flex: 1; display: flex; align-items: flex-end; width: 100%;">
+                <div style="width: 100%; background: var(--accent); border-radius: 2px 2px 0 0; height: {{ (day.cnt / max_count * 100) if max_count else 0 }}%;"
+                     title="{{ day.day }}: {{ day.cnt }} events"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-top: 0.25rem; font-size: 0.7rem; color: var(--text-muted);">
+        {% if by_day %}
+        <span>{{ by_day[0].day }}</span>
+        <span>{{ by_day[-1].day }}</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

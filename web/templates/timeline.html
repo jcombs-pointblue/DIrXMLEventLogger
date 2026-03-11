@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Timeline - {{ srcdn }}{% endblock %}
+{% block content %}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+    <div>
+        <h1 style="margin-bottom: 0.25rem;">Object Timeline</h1>
+        {% if srcdn %}
+        <div class="dn-path mono">
+            {% set parts = srcdn.split('\\') %}
+            {% for part in parts %}
+                {% if loop.last %}
+                    <span class="dn-leaf">{{ part }}</span>
+                {% else %}
+                    {{ part }}\
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% if srcdn and total > 0 %}
+    <div style="display: flex; gap: 0.5rem;">
+        <a href="/export/timeline?srcdn={{ srcdn|urlencode }}" class="btn btn-secondary">Export CSV</a>
+        <a href="/" class="btn btn-secondary">New Search</a>
+    </div>
+    {% endif %}
+</div>
+
+{% if srcdn %}
+<div class="card">
+    <form action="/timeline" method="get">
+        <input type="hidden" name="srcdn" value="{{ srcdn }}">
+        <div class="filter-bar">
+            <label>Type:</label>
+            <select name="event_type">
+                <option value="">All</option>
+                {% for et in event_types %}
+                <option value="{{ et }}" {% if et == event_type %}selected{% endif %}>{{ et }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Class:</label>
+            <select name="class_name">
+                <option value="">All</option>
+                {% for cn in class_names %}
+                <option value="{{ cn }}" {% if cn == class_name %}selected{% endif %}>{{ cn }}</option>
+                {% endfor %}
+            </select>
+
+            <label>From:</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+
+            <label>To:</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+
+            <button type="submit">Filter</button>
+        </div>
+    </form>
+</div>
+
+<div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">
+    {{ total }} event{{ 's' if total != 1 }} found
+</div>
+
+<div id="timeline-results">
+    {% include "partials/timeline_results.html" %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>Enter an object DN above to view its event timeline.</p>
+    <p style="margin-top: 0.5rem;"><a href="/" style="color: var(--accent);">Go to search</a></p>
+</div>
+{% endif %}
+{% endblock %}

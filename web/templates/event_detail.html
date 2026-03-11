@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Event {{ event.eventid }}{% endblock %}
+{% block content %}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+    <h1>Event Detail</h1>
+    <div style="display: flex; gap: 1rem; align-items: center;">
+        {% if prev_event %}
+        <a href="/event/{{ prev_event.eventid }}" class="nav-event">
+            &larr; {{ prev_event.eventtype }} @ {{ prev_event.cachedtime.strftime('%H:%M:%S') if prev_event.cachedtime else '' }}
+        </a>
+        {% endif %}
+        {% if next_event %}
+        <a href="/event/{{ next_event.eventid }}" class="nav-event">
+            {{ next_event.eventtype }} @ {{ next_event.cachedtime.strftime('%H:%M:%S') if next_event.cachedtime else '' }} &rarr;
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="detail-grid">
+        <div class="detail-label">Event ID</div>
+        <div class="mono">{{ event.eventid }}</div>
+
+        <div class="detail-label">Event Type</div>
+        <div><span class="badge badge-{{ event.eventtype }}">{{ event.eventtype }}</span></div>
+
+        <div class="detail-label">Time</div>
+        <div class="mono">{{ event.cachedtime.strftime('%Y-%m-%d %H:%M:%S') if event.cachedtime else 'N/A' }}</div>
+
+        <div class="detail-label">Class Name</div>
+        <div>{{ event.classname }}</div>
+
+        <div class="detail-label">Source DN</div>
+        <div>
+            <a href="/timeline?srcdn={{ event.srcdn|urlencode }}" style="color: var(--accent); text-decoration: none;">
+                <span class="mono">{{ event.srcdn }}</span>
+            </a>
+        </div>
+
+        <div class="detail-label">Entry ID</div>
+        <div class="mono">{{ event.srcentryid }}</div>
+    </div>
+</div>
+
+{% if changes %}
+<div class="card">
+    <h2>Changes</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Attribute</th>
+                <th>Action</th>
+                <th>Old Value</th>
+                <th>New Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for change in changes %}
+            <tr class="change-row">
+                <td class="mono" style="font-weight: 600;">{{ change.attribute }}</td>
+                <td>
+                    <span class="badge {% if change.action == 'added' %}badge-add{% elif change.action == 'removed' or change.action == 'cleared' %}badge-delete{% else %}badge-modify{% endif %}">
+                        {{ change.action }}
+                    </span>
+                </td>
+                <td class="mono change-old">{{ change.get('old', '') }}</td>
+                <td class="mono change-new">{{ change.get('new', '') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="tabs">
+    <div class="tab data-tab data-tab-json active" onclick="switchTab('data', 'json')">JSON</div>
+    <div class="tab data-tab data-tab-xml" onclick="switchTab('data', 'xml')">XML</div>
+</div>
+
+<div class="data-content data-content-json active">
+    {% if event.eventjson %}
+    <div class="json-view">{{ event.eventjson | tojson(indent=2) }}</div>
+    {% else %}
+    <div class="empty-state">No JSON data available.</div>
+    {% endif %}
+</div>
+
+<div class="data-content data-content-xml">
+    {% if event.xmlevent %}
+    <div class="xml-view">{{ event.xmlevent }}</div>
+    {% else %}
+    <div class="empty-state">No XML data stored for this event.</div>
+    {% endif %}
+</div>
+{% endblock %}

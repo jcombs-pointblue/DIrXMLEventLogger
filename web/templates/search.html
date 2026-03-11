@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<h1>Search Events</h1>
+<p style="color: var(--text-muted); margin-bottom: 1rem;">
+    Search across all event JSON payloads.
+</p>
+
+<div class="card">
+    <form action="/search" method="get">
+        <div class="filter-bar">
+            <div class="search-box">
+                <input type="text" name="q" placeholder="Search event data..." value="{{ q }}">
+            </div>
+
+            <label>Type:</label>
+            <select name="event_type">
+                <option value="">All</option>
+                <option value="add" {% if event_type == 'add' %}selected{% endif %}>add</option>
+                <option value="modify" {% if event_type == 'modify' %}selected{% endif %}>modify</option>
+                <option value="delete" {% if event_type == 'delete' %}selected{% endif %}>delete</option>
+                <option value="sync" {% if event_type == 'sync' %}selected{% endif %}>sync</option>
+                <option value="rename" {% if event_type == 'rename' %}selected{% endif %}>rename</option>
+                <option value="move" {% if event_type == 'move' %}selected{% endif %}>move</option>
+            </select>
+
+            <label>From:</label>
+            <input type="date" name="date_from" value="{{ date_from }}">
+
+            <label>To:</label>
+            <input type="date" name="date_to" value="{{ date_to }}">
+
+            <button type="submit">Search</button>
+        </div>
+    </form>
+</div>
+
+{% if q %}
+<div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">
+    {{ total }} result{{ 's' if total != 1 }} for "{{ q }}"
+</div>
+{% endif %}
+
+<div id="search-results">
+    {% include "partials/search_results.html" %}
+</div>
+{% endblock %}

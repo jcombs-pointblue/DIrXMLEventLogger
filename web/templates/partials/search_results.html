@@ -1,0 +1,57 @@
+{% if events %}
+<table>
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>Type</th>
+            <th>Class</th>
+            <th>Source DN</th>
+            <th>Event ID</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for event in events %}
+        <tr class="expandable" onclick="toggleExpand('{{ event.eventid }}')">
+            <td class="mono">{{ event.cachedtime.strftime('%Y-%m-%d %H:%M:%S') if event.cachedtime else 'N/A' }}</td>
+            <td><span class="badge badge-{{ event.eventtype }}">{{ event.eventtype }}</span></td>
+            <td>{{ event.classname }}</td>
+            <td>
+                <a href="/timeline?srcdn={{ event.srcdn|urlencode }}" style="color: var(--accent); text-decoration: none;"
+                   onclick="event.stopPropagation();">
+                    <span class="mono" style="font-size: 0.8rem;">{{ event.srcdn }}</span>
+                </a>
+            </td>
+            <td class="mono">{{ event.eventid }}</td>
+        </tr>
+        <tr id="expand-{{ event.eventid }}" class="expand-content">
+            <td colspan="5" style="padding: 1rem;">
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <a href="/event/{{ event.eventid }}" class="btn" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">Full Detail</a>
+                    <a href="/timeline?srcdn={{ event.srcdn|urlencode }}" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">View Timeline</a>
+                </div>
+                {% if event.eventjson %}
+                <div class="json-view">{{ event.eventjson | tojson(indent=2) }}</div>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if pages > 1 %}
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="/search?q={{ q|urlencode }}&event_type={{ event_type }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page - 1 }}">Prev</a>
+    {% endif %}
+    <span class="current">Page {{ page }} of {{ pages }}</span>
+    {% if page < pages %}
+    <a href="/search?q={{ q|urlencode }}&event_type={{ event_type }}&date_from={{ date_from }}&date_to={{ date_to }}&page={{ page + 1 }}">Next</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% elif q %}
+<div class="empty-state">
+    <p>No events found matching "{{ q }}".</p>
+</div>
+{% endif %}
