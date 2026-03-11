@@ -210,14 +210,17 @@ Add this as an ECMAScript action in a policy on the driver you want to log event
 ```javascript
 var PolicyLogger = Packages.com.pointblue.idm.eventlogger.PolicyLogger;
 
-// DN of your EventLoggerDriver — not this driver, the Event Logger driver
+// DN of the EventLoggerDriver to log through
 var eventLoggerDN = "\\TREENAME\\system\\driverset\\EventLogger";
+
+// DN of THIS driver (the one whose policy is running)
+var thisDriverDN = "\\TREENAME\\system\\driverset\\ActiveDirectory";
 
 // Get the current operation document via XPath
 var xmlString = XPATH.get("/");
 
 // Log the event — returns true on success, false on error
-PolicyLogger.logEvent(eventLoggerDN, "sub", "AD-Sub-ETP", xmlString);
+PolicyLogger.logEvent(eventLoggerDN, thisDriverDN, "sub", "AD-Sub-ETP", xmlString);
 ```
 
 Place the policy on whichever channel and at whichever policy point you want to capture. For example, placing it on the subscriber Event Transformation Policy of your AD driver would log every event the AD driver processes on its subscriber channel.
@@ -227,6 +230,7 @@ Place the policy on whichever channel and at whichever policy point you want to 
 | Parameter | Description |
 |-----------|-------------|
 | `eventLoggerDN` | Full DN of the EventLoggerDriver instance to log through |
+| `thisDriverDN` | Full DN of the driver whose policy is calling this method (stored in the `srcdriver` column) |
 | `channel` | Channel context, e.g. `"sub"` or `"pub"` |
 | `policyDN` | Name of the calling policy (for traceability in the logged JSON) |
 | `xmlString` | The current XDS document as a string (use `XPATH.get("/")`) |
@@ -240,7 +244,7 @@ Events logged through PolicyLogger are written to the same table as the Event Lo
 - `logged-by-policy` — the policy name passed to `logEvent()`
 - `logged-channel` — the channel (`"sub"` or `"pub"`)
 
-The `srcdriver` column is set to the EventLoggerDriver's DN. This lets you distinguish between events the Event Logger captured on its own channel versus events sent from other drivers' policies, and filter by source driver in the web UI.
+The `srcdriver` column is set to the calling driver's DN (the `thisDriverDN` parameter). This lets you distinguish which driver an event came from and filter by source driver in the web UI. Events captured directly by the EventLoggerDriver on its own subscriber channel will have `srcdriver` set to the EventLoggerDriver's own DN.
 
 ### Multiple Event Logger drivers
 

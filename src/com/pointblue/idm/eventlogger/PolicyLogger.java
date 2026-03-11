@@ -25,9 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * <h3>Usage from ECMAScript in a DirXML policy:</h3>
  * <pre>
  *   var PolicyLogger = Packages.com.pointblue.idm.eventlogger.PolicyLogger;
- *   var driverDN = "\\TREENAME\\system\\driverset\\EventLogger";
+ *   var eventLoggerDN = "\\TREENAME\\system\\driverset\\EventLogger";
+ *   var thisDriverDN  = "\\TREENAME\\system\\driverset\\ActiveDirectory";
  *   var xmlString = XPATH.get("/");
- *   PolicyLogger.logEvent(driverDN, "sub", "MyPolicy", xmlString);
+ *   PolicyLogger.logEvent(eventLoggerDN, thisDriverDN, "sub", "AD-Sub-ETP", xmlString);
  * </pre>
  * <p>
  * <h3>Direct instantiation (without registry):</h3>
@@ -122,24 +123,26 @@ public class PolicyLogger {
      *   var PolicyLogger = Packages.com.pointblue.idm.eventlogger.PolicyLogger;
      *   PolicyLogger.logEvent(
      *       "\\TREENAME\\system\\driverset\\EventLogger",
+     *       "\\TREENAME\\system\\driverset\\ActiveDirectory",
      *       "sub",           // channel: "sub" or "pub"
-     *       "MyPolicy",      // policy name for tracing
+     *       "AD-Sub-ETP",    // policy name for tracing
      *       XPATH.get("/")   // current operation document
      *   );
      * </pre>
      *
-     * @param driverDN  the DN of the EventLoggerDriver to log through
-     * @param channel   the channel name ("sub" or "pub") for context in the log entry
-     * @param policyDN  the name or DN of the calling policy (for tracing)
-     * @param xmlString the XDS XML document as a string
+     * @param eventLoggerDN the DN of the EventLoggerDriver to log through
+     * @param srcDriverDN   the DN of the driver whose policy is calling this method (stored in {@code srcdriver} column)
+     * @param channel       the channel name ("sub" or "pub") for context in the log entry
+     * @param policyDN      the name or DN of the calling policy (for tracing)
+     * @param xmlString     the XDS XML document as a string
      * @return {@code true} if the event was logged successfully, {@code false} on error
      */
-    public static boolean logEvent(String driverDN, String channel, String policyDN, String xmlString) {
+    public static boolean logEvent(String eventLoggerDN, String srcDriverDN, String channel, String policyDN, String xmlString) {
         Trace trace = new Trace("PolicyLogger");
 
-        PolicyLogger logger = registry.get(driverDN);
+        PolicyLogger logger = registry.get(eventLoggerDN);
         if (logger == null) {
-            trace.trace("No PolicyLogger registered for driver: " + driverDN, 0);
+            trace.trace("No PolicyLogger registered for driver: " + eventLoggerDN, 0);
             return false;
         }
 
@@ -176,9 +179,9 @@ public class PolicyLogger {
             eventJSON.put("logged-by-policy", policyDN);
             eventJSON.put("logged-channel", channel);
 
-            // Write to DB
-            logger.writeEventToDB(eventJSON, xmlString, logger.logXML);
-            trace.trace("PolicyLogger.logEvent: Logged " + detectedType + " event from policy " + policyDN, 3);
+            // Write to DB with the calling driver's DN as the source
+            logger.writeEventToDB(eventJSON, xmlString, logger.logXML, srcDriverDN);
+            trace.trace("PolicyLogger.logEvent: Logged " + detectedType + " event from policy " + policyDN + " on driver " + srcDriverDN, 3);
             return true;
 
         } catch (Exception e) {
@@ -306,6 +309,19 @@ public class PolicyLogger {
      * @throws SQLException if the database insert fails
      */
     private void writeEventToDB(JSONObject eventJSON, String xmlString, boolean logXML) throws SQLException {
+        writeEventToDB(eventJSON, xmlString, logXML, this.driverDN);
+    }
+
+    /**
+     * Writes an event to the database with an explicit source driver DN.
+     *
+     * @param eventJSON    the event data as a JSON object
+     * @param xmlString    the XML document as a string, or {@code null} if not storing XML
+     * @param logXML       {@code true} to store the XML document, {@code false} to store NULL
+     * @param srcDriverDN  the DN of the driver that originated the event
+     * @throws SQLException if the database insert fails
+     */
+    private void writeEventToDB(JSONObject eventJSON, String xmlString, boolean logXML, String srcDriverDN) throws SQLException {
         Connection conn = getConnection();
         String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\") VALUES(?,?,?,?,?,?,?,?,?);";
 
@@ -333,8 +349,8 @@ public class PolicyLogger {
                 pstmt.setNull(8, Types.VARCHAR);
             }
 
-            if (driverDN != null) {
-                pstmt.setString(9, driverDN);
+            if (srcDriverDN != null) {
+                pstmt.setString(9, srcDriverDN);
             } else {
                 pstmt.setNull(9, Types.VARCHAR);
             }
