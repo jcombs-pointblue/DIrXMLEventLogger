@@ -189,6 +189,71 @@ Then open http://localhost:5000.
 
 **"Find all events touching a specific value"** — Use Search to query across all JSON payloads. For example, search for an email address to find every event that set or removed it.
 
+## PolicyLogger — Logging from Policies and Other Drivers
+
+PolicyLogger allows any DirXML policy or driver to log events to the same database used by the Event Logger driver. It uses a static registry pattern: each running EventLoggerDriver automatically registers itself during startup, so policy code can log events by referencing a driver DN without needing database credentials.
+
+### How it works
+
+1. When an EventLoggerDriver starts, it registers a PolicyLogger instance keyed by its full driver DN.
+2. Policy ECMAScript code calls the static `logEvent()` method with the driver DN and the current XDS document.
+3. PolicyLogger parses the XML, converts it to JSON, and writes it to the database using the registered driver's connection and settings.
+4. When the EventLoggerDriver shuts down, it unregisters and closes the PolicyLogger connection.
+
+### ECMAScript usage
+
+Call `PolicyLogger.logEvent()` from an ECMAScript action in any policy on any driver:
+
+```javascript
+var PolicyLogger = Packages.com.pointblue.idm.eventlogger.PolicyLogger;
+
+// The DN of your EventLoggerDriver instance
+var driverDN = "\\TREENAME\\system\\driverset\\EventLogger";
+
+// Get the current operation document
+var xmlString = XPATH.get("/");
+
+// Log the event — returns true on success, false on error
+PolicyLogger.logEvent(driverDN, "sub", "MyPolicyName", xmlString);
+```
+
+**Parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `driverDN` | Full DN of the EventLoggerDriver to log through |
+| `channel` | Channel context: `"sub"` or `"pub"` |
+| `policyDN` | Name or DN of the calling policy (stored in the JSON for tracing) |
+| `xmlString` | The XDS XML document as a string (use `XPATH.get("/")`) |
+
+The method returns `boolean` — `true` if the event was logged, `false` if the driver DN is not registered or an error occurred. Errors are traced but never thrown, so policy execution is not interrupted.
+
+### What gets stored
+
+Events logged through PolicyLogger are written to the same table as direct driver events, with two additional JSON fields for traceability:
+
+- `logged-by-policy` — the policy name/DN passed to `logEvent()`
+- `logged-channel` — the channel (`"sub"` or `"pub"`)
+
+The `srcdriver` column is set to the EventLoggerDriver's DN, so you can filter events by source driver in the web UI.
+
+### Multi-driver support
+
+Multiple EventLoggerDriver instances can run simultaneously, each registering its own PolicyLogger. Policy code simply references the DN of whichever driver it wants to log through. Each registered logger maintains its own independent database connection.
+
+### Direct instantiation
+
+PolicyLogger can also be used directly without the registry, for example from a custom driver that doesn't have an EventLoggerDriver running:
+
+```java
+PolicyLogger logger = new PolicyLogger("localhost:5432/idmEvent", "postgres", "password", null);
+try {
+    logger.writeEventToDB(eventJSON, xmlDoc, true);
+} finally {
+    logger.close();
+}
+```
+
 ## Useful PostgreSQL Queries
 
 Find events for a DN subtree (uses the reverse index):
