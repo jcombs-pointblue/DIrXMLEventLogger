@@ -16,15 +16,43 @@ import java.time.Instant;
 
 
 /**
- * EventLoggerDriver is the main class for the DirXML Event Logger driver.
- * This driver logs events that pass through the Identity Manager system
- * to a PostgreSQL database.
+ * DirXML Event Logger driver for NetIQ Identity Manager.
+ * <p>
+ * Captures events from the subscriber channel (add, modify, delete, sync, rename, move),
+ * converts them to JSON using the {@link BaseEventConverter} hierarchy, and writes both
+ * the JSON and (optionally) the original XDS XML to a PostgreSQL database.
+ * <p>
+ * This driver implements all three shim interfaces ({@link DriverShim},
+ * {@link SubscriptionShim}, {@link PublicationShim}) as well as {@link XmlQueryProcessor}.
+ * The publication side provides heartbeat support only; no events are published.
+ *
+ * <h3>Driver Options</h3>
+ * <ul>
+ *   <li><b>storeXML</b> — set to "false" to skip storing the raw XML document (default: true)</li>
+ *   <li><b>tableName</b> — override the target table name (default: "public.dxmlevent")</li>
+ * </ul>
+ *
+ * <h3>Authentication</h3>
+ * <ul>
+ *   <li><b>Authentication ID</b> — PostgreSQL username</li>
+ *   <li><b>Authentication context</b> — PostgreSQL connection string (e.g. localhost:5432/idmEvent)</li>
+ *   <li><b>Application password</b> — PostgreSQL password</li>
+ * </ul>
+ *
+ * <h3>Connection Management</h3>
+ * A single JDBC connection is maintained and reused across events. If the connection
+ * becomes invalid, it is automatically re-established. On repeated connection failures,
+ * exponential backoff is applied (1s, 2s, 4s, ... up to 5 minutes) to avoid overwhelming
+ * an unavailable database. The backoff resets on successful reconnection.
+ *
+ * @see BaseEventConverter
+ * @see PolicyLogger
  */
 public class EventLoggerDriver extends CommonImpl implements DriverShim, PublicationShim, SubscriptionShim, XmlQueryProcessor {
 
     /**
-     * Table of parameters that this driver shim wants to get from the
-     * &lt;driver-options> element of the init-params.
+     * Descriptors for the parameters this driver reads from the
+     * {@code <driver-options>} element of the init document.
      */
     public static final ShimParamDesc[] DRIVER_PARAMS
             = {
@@ -32,17 +60,38 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
             new ShimParamDesc("tableName", ShimParamDesc.STRING_TYPE, false)
 
     };
+
+    /** Current driver version string, returned in driver identification queries. */
     private static final String DRIVER_VERSION_VALUE = "1.0.0";
+
+    /** Minimum activation version required for this driver. */
     private static final String DRIVER_MIN_ACTIVATION_VERSION = "0";
 
+    /** Monitor object used for publisher thread synchronization and shutdown signaling. */
     private final Object shutdownGate = new Object();
+
+    /** Trace instance for diagnostic output to DSTrace and trace files. */
     Trace tracer = new Trace("EventLogger");
+
+    /** Database authentication parameters extracted from the init document. */
     AuthenticationParams authParams = null;
+
+    /** Driver option parameters extracted from the init document. */
     ShimParams params = null;
+
+    /** Whether to store the original XDS XML alongside JSON in the database. Controlled by the storeXML driver option. */
     boolean logXML = true;
+
+    /** Target database table name. Controlled by the tableName driver option. */
     String tableName = "public.dxmlevent";
+
+    /** Flag set to {@code true} when {@link #shutdown} is called, signaling the publisher thread to exit. */
     private volatile boolean shutdown = false;
+
+    /** Publisher heartbeat interval in milliseconds, or 0 if disabled. */
     private int heartbeatInterval;
+
+    /** Reusable JDBC connection to PostgreSQL. Validated before each use. */
     private Connection dbConnection = null;
 
     // Reconnection backoff state
@@ -53,6 +102,9 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     private long lastConnectionFailureTime = 0;
 
 
+    /**
+     * Constructs a new EventLoggerDriver instance with default settings.
+     */
     public EventLoggerDriver() {
         super("EventLogger");
         this.driverRDN = "";
@@ -60,16 +112,24 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     }
 
     /**
-     * Initialize the driver with the given document.
+     * Initializes the driver by reading authentication and option parameters from the
+     * init document, then validates the database connection.
+     * <p>
+     * Reads the following from the init document:
+     * <ul>
+     *   <li>Authentication parameters (user, context/server, password)</li>
+     *   <li>Driver options: storeXML, tableName</li>
+     *   <li>Publisher heartbeat interval</li>
+     * </ul>
+     * If the database connection cannot be established, returns {@link #STATUS_FATAL}.
      *
-     * @param initParameters The initialization document
-     * @return The result of initialization
+     * @param initParameters the DirXML initialization document
+     * @return a status document indicating success or failure
      */
     public XmlDocument init(XmlDocument initParameters) {
 
         authParams = getAuthenticationParams(initParameters.getDocumentNS());
 
-        //get any non-authentication options from the init document
         params = getShimParams(initParameters.getDocumentNS(), "driver", DRIVER_PARAMS);
         setDriverRDN(initParameters.getDocumentNS());
 
@@ -111,6 +171,14 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
         return createSuccessDocument();
     }
 
+    /**
+     * Starts the publisher thread. Sends heartbeat status documents at the configured
+     * interval, or waits indefinitely if heartbeat is disabled. Runs until
+     * {@link #shutdown} is called.
+     *
+     * @param executePublisher the command processor for submitting documents to the engine
+     * @return a success status document when the publisher thread exits
+     */
     @Override
     public XmlDocument start(XmlCommandProcessor executePublisher) {
         long nextHeartbeat = System.currentTimeMillis() + this.heartbeatInterval;
@@ -142,10 +210,11 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     }
 
     /**
-     * Shut down the driver.
+     * Shuts down the driver by signaling the publisher thread to exit and
+     * closing the database connection.
      *
-     * @param reason The shutdown document
-     * @return The result of shutdown
+     * @param reason the shutdown reason document from the engine
+     * @return a status document indicating success or failure
      */
     public XmlDocument shutdown(XmlDocument reason) {
         try
@@ -164,9 +233,9 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     }
 
     /**
-     * Get the subscription shim for this driver.
+     * Returns this driver instance as the subscription shim.
      *
-     * @return The subscription shim
+     * @return this instance
      */
     public SubscriptionShim getSubscriptionShim() {
 
@@ -174,19 +243,20 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     }
 
     /**
-     * Get the publication shim for this driver.
+     * Returns this driver instance as the publication shim.
      *
-     * @return The publication shim
+     * @return this instance
      */
     public PublicationShim getPublicationShim() {
         return this;
     }
 
     /**
-     * Get the schema for this driver.
+     * Returns an empty schema definition. This driver does not define a custom schema
+     * as it logs events from all object classes.
      *
-     * @param initParameters The document requesting schema information
-     * @return The schema document
+     * @param initParameters the schema request document
+     * @return an XDS document containing an empty {@code <schema-def>}
      */
     public XmlDocument getSchema(XmlDocument initParameters) {
         setDriverRDN(initParameters.getDocumentNS());
@@ -198,11 +268,44 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
         return new XmlDocument(output.getOwnerDocument());
     }
 
+    /**
+     * Handles query requests. Returns success for all queries as this driver
+     * does not support application-side queries.
+     *
+     * @param doc the query document
+     * @return a success status document
+     */
     @Override
     public XmlDocument query(XmlDocument doc) {
         return createSuccessDocument();
     }
 
+    /**
+     * Processes a subscriber channel event by converting it to JSON and writing it
+     * to the database.
+     * <p>
+     * If the document contains a driver identity query, responds with the driver
+     * identification instead of logging. Otherwise:
+     * <ol>
+     *   <li>Determines the event type (add, modify, delete, sync, rename, move)</li>
+     *   <li>Converts the XDS XML to JSON via the appropriate {@link BaseEventConverter}</li>
+     *   <li>Inserts the event data into PostgreSQL</li>
+     * </ol>
+     *
+     * <h4>Error handling by SQL state:</h4>
+     * <ul>
+     *   <li><b>23505</b> (duplicate key) — returns ERROR, event already logged</li>
+     *   <li><b>42P01/42703</b> (undefined table/column) — returns FATAL</li>
+     *   <li><b>23502</b> (not-null violation) — returns ERROR</li>
+     *   <li><b>28000</b> (invalid credentials) — returns FATAL</li>
+     *   <li><b>08xxx</b> (connection errors) — resets connection, returns RETRY</li>
+     *   <li>Other SQL errors — returns RETRY</li>
+     * </ul>
+     *
+     * @param doc   the XDS command document from the subscriber channel
+     * @param query the query processor for this execution context
+     * @return a status document indicating success, error, fatal, or retry
+     */
     public XmlDocument execute(XmlDocument doc, XmlQueryProcessor query) {
         try
         {
@@ -214,7 +317,6 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
                 addStatusElement((Element) identXDS.getDocument().getElementsByTagName("output").item(0), 0, "", "query-driver-ident");
                 return identXDS;
             }
-            // Process the event and log it
             JSONObject eventJSON = convertEvent(doc);
 
             tracer.trace("Converted event to JSON: " + eventJSON.toString(2), 3);
@@ -229,28 +331,23 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
                 return createStatusDocument(STATUS_RETRY, t.getMessage());
             }
 
-            // Duplicate key — event already logged
             if (sqlState.equals("23505"))
             {
                 return createStatusDocument(STATUS_ERROR, "Duplicate event: " + t.getMessage());
             }
-            // Schema errors — won't self-resolve, require admin intervention
             if (sqlState.equals("42P01") || sqlState.equals("42703"))
             {
                 return createStatusDocument(STATUS_FATAL, "Schema error: " + t.getMessage());
             }
-            // Not-null constraint violation
             if (sqlState.equals("23502"))
             {
                 return createStatusDocument(STATUS_ERROR, "Null constraint violation: " + t.getMessage());
             }
-            // Invalid credentials
             if (sqlState.equals("28000"))
             {
                 tracer.trace("Invalid database credentials", 0);
                 return createStatusDocument(STATUS_FATAL, t.getMessage());
             }
-            // Connection errors (08xxx) — transient, retry
             if (sqlState.startsWith("08"))
             {
                 closeConnection();
@@ -270,6 +367,13 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
         return createStatusDocument(STATUS_SUCCESS, "Event Logged");
     }
 
+    /**
+     * Builds the driver identification response document containing the driver ID,
+     * version, minimum activation version, and query-ex-supported flag.
+     *
+     * @param eventId the event ID for the identification request
+     * @return an XDS output document with driver identification attributes
+     */
     private XmlDocument getDriverIdentification(String eventId) {
         try
         {
@@ -283,9 +387,15 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     }
 
     /**
-     * Gets or creates a database connection. Reuses existing connection if still valid.
-     * Applies exponential backoff (1s, 2s, 4s, ... up to 5min) on repeated connection failures
-     * to avoid hammering an unavailable database. Backoff resets on successful connection.
+     * Gets or creates a database connection, reusing the existing one if still valid.
+     * <p>
+     * Applies exponential backoff on repeated connection failures to avoid
+     * hammering an unavailable database. The backoff sequence is:
+     * 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, then capped at 5 minutes.
+     * Backoff resets immediately on a successful connection.
+     *
+     * @return a valid JDBC connection
+     * @throws SQLException if the connection cannot be established
      */
     private synchronized Connection getConnection() throws SQLException {
         // Check if existing connection is still usable
@@ -329,7 +439,6 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
         try
         {
             dbConnection = DriverManager.getConnection(url, user, password);
-            // Success — reset backoff
             if (currentBackoffMs > 0)
             {
                 tracer.trace("Database connection restored after backoff", 0);
@@ -340,7 +449,6 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
             return dbConnection;
         } catch (SQLException e)
         {
-            // Advance backoff for next attempt
             lastConnectionFailureTime = System.currentTimeMillis();
             if (currentBackoffMs == 0)
             {
@@ -355,7 +463,7 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     }
 
     /**
-     * Closes the current database connection if open.
+     * Closes the current database connection if open. Safe to call multiple times.
      */
     private synchronized void closeConnection() {
         if (dbConnection != null)
@@ -374,6 +482,17 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
         }
     }
 
+    /**
+     * Writes an event to the database as a row in the configured table.
+     * <p>
+     * Extracts the event ID, class name, source DN, entry ID, event type, and
+     * timestamp from the JSON, then inserts them along with the full JSON payload
+     * and (optionally) the original XML document.
+     *
+     * @param eventJSON the event data as a JSON object
+     * @param doc       the original XDS XML document
+     * @throws SQLException if the database insert fails
+     */
     private void writeEventToDB(JSONObject eventJSON, XmlDocument doc) throws SQLException {
         tracer.trace("Writing event to database", 3);
 
@@ -407,6 +526,14 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
         }
     }
 
+    /**
+     * Populates a driver identification instance element in the output document.
+     * Sets the driver ID ("EventLogger"), version, minimum activation version,
+     * and query-ex-supported flag.
+     *
+     * @param output the {@code <output>} element to append the identification to
+     * @param query  the query processor (unused, required by interface)
+     */
     void addDriverIdentification(Element output, XmlQueryProcessor query) {
         Document doc = output.getOwnerDocument();
         Element instance = doc.createElementNS(null, "instance");
@@ -447,12 +574,15 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     }
 
     /**
-     * Converts an XML event document to a JSON object.
-     * Determines the event type (add, modify, delete, sync, rename, move) and uses the appropriate converter.
+     * Converts an XDS event document to a JSON object by detecting the event type
+     * and delegating to the appropriate {@link BaseEventConverter} subclass.
+     * <p>
+     * Supported event types: add, modify, delete, sync, rename, move.
      *
-     * @param xmlDoc The XML document to convert
-     * @return A JSON object representing the event
-     * @throws Exception If there is an error during conversion
+     * @param xmlDoc the XDS document containing the event
+     * @return a JSON object representing the event
+     * @throws Exception                if conversion fails
+     * @throws IllegalArgumentException if the event type is not recognized
      */
     private JSONObject convertEvent(XmlDocument xmlDoc) throws Exception {
         Document doc = xmlDoc.getDocument();
@@ -482,6 +612,13 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
         throw new IllegalArgumentException("Unsupported event type. Supported types: add, modify, delete, sync, rename, move.");
     }
 
+    /**
+     * Returns the appropriate event converter for the given event type string.
+     *
+     * @param eventType the event type name (add, modify, delete, sync, rename, move)
+     * @return a new converter instance for the specified type
+     * @throws IllegalArgumentException if the event type is not recognized
+     */
     private BaseEventConverter getConverterForType(String eventType) {
         switch (eventType)
         {
