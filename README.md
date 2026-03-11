@@ -222,4 +222,4 @@ SELECT pg_size_pretty(pg_database_size('idmEvent'));
 
 ## License
 
-Copyright Point Blue Technology. Portions based on the Novell DirXML skeleton driver SDK, used under the Novell SDK license.
+Copyright Point Blue Technology. This code is public domain and may be used in any way you like.
