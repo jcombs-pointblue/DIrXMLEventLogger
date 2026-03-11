@@ -189,70 +189,62 @@ Then open http://localhost:5000.
 
 **"Find all events touching a specific value"** — Use Search to query across all JSON payloads. For example, search for an email address to find every event that set or removed it.
 
-## PolicyLogger — Logging from Policies and Other Drivers
+## PolicyLogger — Logging Events from Other Drivers
 
-PolicyLogger allows any DirXML policy or driver to log events to the same database used by the Event Logger driver. It uses a static registry pattern: each running EventLoggerDriver automatically registers itself during startup, so policy code can log events by referencing a driver DN without needing database credentials.
+The Event Logger driver only captures events on its own subscriber channel. If you want to log events from *other* drivers — for example, to capture what an AD driver or SAP driver is processing — you can use PolicyLogger from an ECMAScript policy on those drivers.
 
 ### How it works
 
-1. When an EventLoggerDriver starts, it registers a PolicyLogger instance keyed by its full driver DN.
-2. Policy ECMAScript code calls the static `logEvent()` method with the driver DN and the current XDS document.
-3. PolicyLogger parses the XML, converts it to JSON, and writes it to the database using the registered driver's connection and settings.
-4. When the EventLoggerDriver shuts down, it unregisters and closes the PolicyLogger connection.
+When the EventLoggerDriver starts, it automatically registers itself with the PolicyLogger static registry. Policies on any other driver in the same JVM can then call `PolicyLogger.logEvent()` to send their current XDS document to the Event Logger's database — no database credentials needed in the policy code.
 
-### ECMAScript usage
+### Setup
 
-Call `PolicyLogger.logEvent()` from an ECMAScript action in any policy on any driver:
+1. Deploy `DIrXMLEventLogger.jar` and the PostgreSQL JDBC driver to the Identity Manager classpath (see [Building the JAR](#building-the-jar)).
+2. Start the EventLoggerDriver. It registers itself automatically.
+3. Add an ECMAScript policy action to the driver whose events you want to capture.
+
+### ECMAScript policy example
+
+Add this as an ECMAScript action in a policy on the driver you want to log events from (e.g., your AD driver, LDAP driver, etc.):
 
 ```javascript
 var PolicyLogger = Packages.com.pointblue.idm.eventlogger.PolicyLogger;
 
-// The DN of your EventLoggerDriver instance
-var driverDN = "\\TREENAME\\system\\driverset\\EventLogger";
+// DN of your EventLoggerDriver — not this driver, the Event Logger driver
+var eventLoggerDN = "\\TREENAME\\system\\driverset\\EventLogger";
 
-// Get the current operation document
+// Get the current operation document via XPath
 var xmlString = XPATH.get("/");
 
 // Log the event — returns true on success, false on error
-PolicyLogger.logEvent(driverDN, "sub", "MyPolicyName", xmlString);
+PolicyLogger.logEvent(eventLoggerDN, "sub", "AD-Sub-ETP", xmlString);
 ```
+
+Place the policy on whichever channel and at whichever policy point you want to capture. For example, placing it on the subscriber Event Transformation Policy of your AD driver would log every event the AD driver processes on its subscriber channel.
 
 **Parameters:**
 
 | Parameter | Description |
 |-----------|-------------|
-| `driverDN` | Full DN of the EventLoggerDriver to log through |
-| `channel` | Channel context: `"sub"` or `"pub"` |
-| `policyDN` | Name or DN of the calling policy (stored in the JSON for tracing) |
-| `xmlString` | The XDS XML document as a string (use `XPATH.get("/")`) |
+| `eventLoggerDN` | Full DN of the EventLoggerDriver instance to log through |
+| `channel` | Channel context, e.g. `"sub"` or `"pub"` |
+| `policyDN` | Name of the calling policy (for traceability in the logged JSON) |
+| `xmlString` | The current XDS document as a string (use `XPATH.get("/")`) |
 
-The method returns `boolean` — `true` if the event was logged, `false` if the driver DN is not registered or an error occurred. Errors are traced but never thrown, so policy execution is not interrupted.
+The method returns `boolean` — `true` if the event was logged, `false` if the EventLoggerDriver is not running or an error occurred. Errors are traced but never thrown, so the calling driver's policy execution is not interrupted.
 
 ### What gets stored
 
-Events logged through PolicyLogger are written to the same table as direct driver events, with two additional JSON fields for traceability:
+Events logged through PolicyLogger are written to the same table as the Event Logger driver's own events. Two additional fields are added to the JSON for traceability:
 
-- `logged-by-policy` — the policy name/DN passed to `logEvent()`
+- `logged-by-policy` — the policy name passed to `logEvent()`
 - `logged-channel` — the channel (`"sub"` or `"pub"`)
 
-The `srcdriver` column is set to the EventLoggerDriver's DN, so you can filter events by source driver in the web UI.
+The `srcdriver` column is set to the EventLoggerDriver's DN. This lets you distinguish between events the Event Logger captured on its own channel versus events sent from other drivers' policies, and filter by source driver in the web UI.
 
-### Multi-driver support
+### Multiple Event Logger drivers
 
-Multiple EventLoggerDriver instances can run simultaneously, each registering its own PolicyLogger. Policy code simply references the DN of whichever driver it wants to log through. Each registered logger maintains its own independent database connection.
-
-### Direct instantiation
-
-PolicyLogger can also be used directly without the registry, for example from a custom driver that doesn't have an EventLoggerDriver running:
-
-```java
-PolicyLogger logger = new PolicyLogger("localhost:5432/idmEvent", "postgres", "password", null);
-try {
-    logger.writeEventToDB(eventJSON, xmlDoc, true);
-} finally {
-    logger.close();
-}
-```
+If you run more than one EventLoggerDriver (e.g., logging to different databases), each registers separately. Policy code references the DN of whichever Event Logger instance it wants to log through.
 
 ## Useful PostgreSQL Queries
 
