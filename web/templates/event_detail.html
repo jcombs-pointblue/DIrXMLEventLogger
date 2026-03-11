@@ -5,12 +5,12 @@
     <h1>Event Detail</h1>
     <div style="display: flex; gap: 1rem; align-items: center;">
         {% if prev_event %}
-        <a href="/event/{{ prev_event.eventid }}" class="nav-event">
+        <a href="/event?id={{ prev_event.eventid|urlencode }}" class="nav-event">
             &larr; {{ prev_event.eventtype }} @ {{ prev_event.cachedtime.strftime('%H:%M:%S') if prev_event.cachedtime else '' }}
         </a>
         {% endif %}
         {% if next_event %}
-        <a href="/event/{{ next_event.eventid }}" class="nav-event">
+        <a href="/event?id={{ next_event.eventid|urlencode }}" class="nav-event">
             {{ next_event.eventtype }} @ {{ next_event.cachedtime.strftime('%H:%M:%S') if next_event.cachedtime else '' }} &rarr;
         </a>
         {% endif %}

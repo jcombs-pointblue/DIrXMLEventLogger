@@ -126,9 +126,13 @@ def timeline():
                            class_names=class_names)
 
 
-@app.route("/event/<event_id>")
-def event_detail(event_id):
+@app.route("/event")
+def event_detail():
     """Show full detail for a single event."""
+    event_id = request.args.get("id", "").strip()
+    if not event_id:
+        return "Event ID required", 400
+
     with get_db() as conn, conn.cursor() as cur:
         cur.execute(
             f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
