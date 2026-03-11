@@ -63,8 +63,9 @@ This creates:
 | `eventjson` | `jsonb` | Full event converted to JSON |
 | `xmlevent` | `text` | Original XDS XML document (optional, controlled by `storeXML`) |
 | `cachedtime` | `timestamptz` | Event timestamp |
+| `srcdriver` | `varchar` | DN of the source driver that logged the event |
 
-An index on `REVERSE(srcdn)` is created to support efficient subtree queries using reverse pattern matching.
+An index on `REVERSE(srcdn)` is created to support efficient subtree queries using reverse pattern matching. An index on `srcdriver` supports filtering events by source driver.
 
 ### 3. Create a read-only user for the web UI
 

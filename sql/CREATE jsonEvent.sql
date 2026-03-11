@@ -9,8 +9,10 @@ CREATE TABLE IF NOT EXISTS dxmlevent (
 	"eventjson" jsonb NOT NULL,
 	"xmlevent" text,
 	"cachedtime" timestamp with time zone NOT NULL,
+	"srcdriver" character varying,
 	PRIMARY KEY("eventid")
 );
 CREATE INDEX idx_srcdn_reverse ON dxmlevent (REVERSE("srcdn"));
+CREATE INDEX idx_srcdriver ON dxmlevent ("srcdriver");
 
 COMMIT;

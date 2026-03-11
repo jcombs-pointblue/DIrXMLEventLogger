@@ -168,6 +168,14 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
             return createStatusDocument(STATUS_FATAL, "Database connection failed: " + e.getMessage());
         }
 
+        // Register with PolicyLogger so policies can log events through this driver
+        if (driverDN != null && !driverDN.isEmpty()) {
+            PolicyLogger.register(driverDN, authParams.authenticationContext,
+                    authParams.authenticationId, authParams.applicationPassword,
+                    tableName, logXML);
+            tracer.trace("Registered PolicyLogger for driver DN: " + driverDN, 0);
+        }
+
         return createSuccessDocument();
     }
 
@@ -223,6 +231,10 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
             {
                 this.shutdown = true;
                 this.shutdownGate.notify();
+            }
+            // Unregister from PolicyLogger registry before closing connection
+            if (driverDN != null && !driverDN.isEmpty()) {
+                PolicyLogger.unregister(driverDN);
             }
             closeConnection();
             return createSuccessDocument();
@@ -497,7 +509,7 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
         tracer.trace("Writing event to database", 3);
 
         Connection conn = getConnection();
-        String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\") VALUES(?,?,?,?,?,?,?,?);";
+        String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\") VALUES(?,?,?,?,?,?,?,?,?);";
 
         try (PreparedStatement pstmt = conn.prepareStatement(sql))
         {
@@ -522,6 +534,7 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
             {
                 pstmt.setNull(8, Types.VARCHAR);
             }
+            pstmt.setString(9, driverDN);
             pstmt.executeUpdate();
         }
     }

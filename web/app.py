@@ -54,6 +54,7 @@ def timeline():
     srcdn = request.args.get("srcdn", "").strip()
     event_type = request.args.get("event_type", "").strip()
     class_name = request.args.get("class_name", "").strip()
+    src_driver = request.args.get("src_driver", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
     page = int(request.args.get("page", "1"))
@@ -62,7 +63,8 @@ def timeline():
     if not srcdn:
         return render_template("timeline.html", events=[], srcdn="", total=0,
                                page=1, pages=0, event_type="", class_name="",
-                               date_from="", date_to="", event_types=[], class_names=[])
+                               src_driver="", date_from="", date_to="",
+                               event_types=[], class_names=[], src_drivers=[])
 
     conditions = ["srcdn = %s"]
     params = [srcdn]
@@ -73,6 +75,9 @@ def timeline():
     if class_name:
         conditions.append("classname = %s")
         params.append(class_name)
+    if src_driver:
+        conditions.append("srcdriver = %s")
+        params.append(src_driver)
     if date_from:
         conditions.append("cachedtime >= %s")
         params.append(date_from)
@@ -90,6 +95,9 @@ def timeline():
         cur.execute(f"SELECT DISTINCT classname FROM {TABLE_NAME} WHERE srcdn = %s ORDER BY classname", (srcdn,))
         class_names = [r["classname"] for r in cur.fetchall()]
 
+        cur.execute(f"SELECT DISTINCT srcdriver FROM {TABLE_NAME} WHERE srcdn = %s AND srcdriver IS NOT NULL ORDER BY srcdriver", (srcdn,))
+        src_drivers = [r["srcdriver"] for r in cur.fetchall()]
+
         # Count
         cur.execute(f"SELECT COUNT(*) as cnt FROM {TABLE_NAME} WHERE {where}", params)
         total = cur.fetchone()["cnt"]
@@ -99,7 +107,7 @@ def timeline():
         offset = (page - 1) * per_page
         cur.execute(
             f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
-                       eventjson, cachedtime, xmlevent
+                       eventjson, cachedtime, xmlevent, srcdriver
                 FROM {TABLE_NAME}
                 WHERE {where}
                 ORDER BY cachedtime ASC, eventid ASC
@@ -121,9 +129,10 @@ def timeline():
 
     return render_template(template, events=events, srcdn=srcdn, total=total,
                            page=page, pages=pages, event_type=event_type,
-                           class_name=class_name, date_from=date_from,
-                           date_to=date_to, event_types=event_types,
-                           class_names=class_names)
+                           class_name=class_name, src_driver=src_driver,
+                           date_from=date_from, date_to=date_to,
+                           event_types=event_types, class_names=class_names,
+                           src_drivers=src_drivers)
 
 
 @app.route("/event")
@@ -136,7 +145,7 @@ def event_detail():
     with get_db() as conn, conn.cursor() as cur:
         cur.execute(
             f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
-                       eventjson, cachedtime, xmlevent
+                       eventjson, cachedtime, xmlevent, srcdriver
                 FROM {TABLE_NAME} WHERE eventid = %s""",
             (event_id,),
         )
@@ -216,7 +225,7 @@ def search():
         offset = (page - 1) * per_page
         cur.execute(
             f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
-                       eventjson, cachedtime
+                       eventjson, cachedtime, srcdriver
                 FROM {TABLE_NAME}
                 WHERE {where}
                 ORDER BY cachedtime DESC
@@ -250,7 +259,7 @@ def export_timeline():
     with get_db() as conn, conn.cursor() as cur:
         cur.execute(
             f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
-                       eventjson::text as eventjson, cachedtime, xmlevent
+                       eventjson::text as eventjson, cachedtime, xmlevent, srcdriver
                 FROM {TABLE_NAME}
                 WHERE srcdn = %s
                 ORDER BY cachedtime ASC""",
@@ -261,7 +270,7 @@ def export_timeline():
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=["eventid", "cachedtime", "eventtype",
                                                  "classname", "srcdn", "srcentryid",
-                                                 "eventjson", "xmlevent"])
+                                                 "srcdriver", "eventjson", "xmlevent"])
     writer.writeheader()
     for e in events:
         writer.writerow(e)
