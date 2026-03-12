@@ -13,6 +13,8 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.StringReader;
 import java.sql.*;
 import java.time.Instant;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -41,8 +43,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *   }
  * </pre>
  * <p>
- * Each registered logger maintains its own reusable JDBC connection with automatic
- * reconnection on failure.
+ * <h3>Connection pooling:</h3>
+ * Each registered PolicyLogger maintains a pool of JDBC connections to support concurrent
+ * callers from multiple driver policies without blocking. Connections are borrowed from the
+ * pool, used for a single INSERT, and returned. If the pool is exhausted, callers block
+ * briefly until a connection becomes available.
  *
  * @see EventLoggerDriver
  */
@@ -51,11 +56,21 @@ public class PolicyLogger {
     /** Registry of active PolicyLogger instances keyed by driver DN. */
     private static final ConcurrentHashMap<String, PolicyLogger> registry = new ConcurrentHashMap<>();
 
+    /*
+     * Connection pool size. 10 connections is sufficient for typical IDM deployments where
+     * a handful of drivers may call logEvent() concurrently. Each connection is lightweight
+     * (~1-2 MB of PostgreSQL backend memory). If you have more than 10 drivers logging
+     * simultaneously, increase this value. Reduce it if database connections are scarce.
+     *
+     * To change, modify POOL_SIZE and rebuild the JAR.
+     */
+    private static final int POOL_SIZE = 10;
+
     /** Trace instance for diagnostic output. */
     private final Trace tracer = new Trace("PolicyLogger");
 
-    /** Reusable JDBC connection, validated before each use. */
-    private Connection dbConnection = null;
+    /** Pool of reusable JDBC connections. Threads borrow and return connections. */
+    private final BlockingQueue<Connection> connectionPool = new ArrayBlockingQueue<>(POOL_SIZE);
 
     /** JDBC connection URL (e.g. {@code jdbc:postgresql://localhost:5432/idmEvent}). */
     private final String dbUrl;
@@ -74,6 +89,9 @@ public class PolicyLogger {
 
     /** The DN of the driver this logger is associated with, stored in each event row. */
     private final String driverDN;
+
+    /** Whether this logger has been closed. */
+    private volatile boolean closed = false;
 
     // --- Static Registry API ---
 
@@ -244,47 +262,70 @@ public class PolicyLogger {
     }
 
     /**
-     * Gets or creates a database connection, reusing the existing one if still valid.
+     * Borrows a connection from the pool, creating a new one if the pool is empty
+     * and hasn't reached capacity. Validates the connection before returning it.
      *
      * @return a valid JDBC connection
-     * @throws SQLException if the connection cannot be established
+     * @throws SQLException if a connection cannot be obtained
      */
-    private synchronized Connection getConnection() throws SQLException {
-        if (dbConnection != null && !dbConnection.isClosed())
-        {
-            try
-            {
-                if (dbConnection.isValid(2))
-                {
-                    return dbConnection;
+    private Connection borrowConnection() throws SQLException {
+        if (closed) {
+            throw new SQLException("PolicyLogger is closed");
+        }
+
+        // Try to get an existing connection from the pool (non-blocking)
+        Connection conn = connectionPool.poll();
+
+        if (conn != null) {
+            // Validate the pooled connection
+            try {
+                if (!conn.isClosed() && conn.isValid(2)) {
+                    return conn;
                 }
-            } catch (SQLException e)
-            {
-                tracer.trace("Existing connection invalid, creating new one", 2);
+            } catch (SQLException e) {
+                // Connection is bad, close it and fall through to create a new one
+                try { conn.close(); } catch (SQLException ignored) {}
             }
         }
-        dbConnection = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
-        return dbConnection;
+
+        // Create a new connection
+        return DriverManager.getConnection(dbUrl, dbUser, dbPassword);
     }
 
     /**
-     * Closes the database connection if open. Safe to call multiple times.
-     * Should be called when the PolicyLogger is no longer needed.
+     * Returns a connection to the pool. If the pool is full, the connection is closed.
+     *
+     * @param conn the connection to return
      */
-    public synchronized void close() {
-        if (dbConnection != null)
-        {
-            try
-            {
-                if (!dbConnection.isClosed())
-                {
-                    dbConnection.close();
+    private void returnConnection(Connection conn) {
+        if (conn == null) return;
+
+        if (closed) {
+            try { conn.close(); } catch (SQLException ignored) {}
+            return;
+        }
+
+        // Try to return to the pool; if full, close the connection
+        if (!connectionPool.offer(conn)) {
+            try { conn.close(); } catch (SQLException ignored) {}
+        }
+    }
+
+    /**
+     * Closes all connections in the pool and marks this logger as closed.
+     * Safe to call multiple times.
+     */
+    public void close() {
+        closed = true;
+        Connection conn;
+        while ((conn = connectionPool.poll()) != null) {
+            try {
+                if (!conn.isClosed()) {
+                    conn.close();
                 }
-            } catch (SQLException e)
-            {
-                tracer.trace("Error closing PolicyLogger connection: " + e.getMessage(), 1);
+            } catch (SQLException e) {
+                tracer.trace("Error closing pooled connection: " + e.getMessage(), 1);
             }
-            dbConnection = null;
         }
     }
 
@@ -297,23 +338,14 @@ public class PolicyLogger {
      * @throws SQLException if the database insert fails
      */
     public void writeEventToDB(JSONObject eventJSON, XmlDocument doc, boolean logXML) throws SQLException {
-        writeEventToDB(eventJSON, logXML ? doc.getDocumentString() : null, logXML);
-    }
-
-    /**
-     * Writes an event to the database.
-     *
-     * @param eventJSON the event data as a JSON object
-     * @param xmlString the XML document as a string, or {@code null} if not storing XML
-     * @param logXML    {@code true} to store the XML document, {@code false} to store NULL
-     * @throws SQLException if the database insert fails
-     */
-    private synchronized void writeEventToDB(JSONObject eventJSON, String xmlString, boolean logXML) throws SQLException {
-        writeEventToDB(eventJSON, xmlString, logXML, this.driverDN);
+        writeEventToDB(eventJSON, logXML ? doc.getDocumentString() : null, logXML, this.driverDN);
     }
 
     /**
      * Writes an event to the database with an explicit source driver DN.
+     * <p>
+     * Borrows a connection from the pool, executes the INSERT, and returns the
+     * connection. Each caller gets its own connection, so no synchronization is needed.
      *
      * @param eventJSON    the event data as a JSON object
      * @param xmlString    the XML document as a string, or {@code null} if not storing XML
@@ -321,40 +353,47 @@ public class PolicyLogger {
      * @param srcDriverDN  the DN of the driver that originated the event
      * @throws SQLException if the database insert fails
      */
-    private synchronized void writeEventToDB(JSONObject eventJSON, String xmlString, boolean logXML, String srcDriverDN) throws SQLException {
-        Connection conn = getConnection();
-        String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\") VALUES(?,?,?,?,?,?,?,?,?);";
+    private void writeEventToDB(JSONObject eventJSON, String xmlString, boolean logXML, String srcDriverDN) throws SQLException {
+        Connection conn = borrowConnection();
+        try {
+            String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\") VALUES(?,?,?,?,?,?,?,?,?);";
 
-        try (PreparedStatement pstmt = conn.prepareStatement(sql))
-        {
-            long epochSeconds = Long.parseLong(eventJSON.getString("timestamp").split("#")[0]);
-            Timestamp timestamp = Timestamp.from(Instant.ofEpochSecond(epochSeconds));
-            pstmt.setTimestamp(7, timestamp);
-            pstmt.setString(1, eventJSON.getString("event-id"));
-            pstmt.setString(2, eventJSON.getString("class-name"));
-            pstmt.setString(3, eventJSON.getString("src-dn"));
-            pstmt.setString(4, eventJSON.getString("src-entry-id"));
-            pstmt.setString(5, eventJSON.getString("event-type"));
-
-            PGobject jsonObject = new PGobject();
-            jsonObject.setType("json");
-            jsonObject.setValue(eventJSON.toString());
-            pstmt.setObject(6, jsonObject);
-
-            if (logXML && xmlString != null)
+            try (PreparedStatement pstmt = conn.prepareStatement(sql))
             {
-                pstmt.setString(8, xmlString);
-            } else
-            {
-                pstmt.setNull(8, Types.VARCHAR);
-            }
+                long epochSeconds = Long.parseLong(eventJSON.getString("timestamp").split("#")[0]);
+                Timestamp timestamp = Timestamp.from(Instant.ofEpochSecond(epochSeconds));
+                pstmt.setTimestamp(7, timestamp);
+                pstmt.setString(1, eventJSON.getString("event-id"));
+                pstmt.setString(2, eventJSON.getString("class-name"));
+                pstmt.setString(3, eventJSON.getString("src-dn"));
+                pstmt.setString(4, eventJSON.getString("src-entry-id"));
+                pstmt.setString(5, eventJSON.getString("event-type"));
 
-            if (srcDriverDN != null) {
-                pstmt.setString(9, srcDriverDN);
-            } else {
-                pstmt.setNull(9, Types.VARCHAR);
+                PGobject jsonObject = new PGobject();
+                jsonObject.setType("json");
+                jsonObject.setValue(eventJSON.toString());
+                pstmt.setObject(6, jsonObject);
+
+                if (logXML && xmlString != null)
+                {
+                    pstmt.setString(8, xmlString);
+                } else
+                {
+                    pstmt.setNull(8, Types.VARCHAR);
+                }
+
+                if (srcDriverDN != null) {
+                    pstmt.setString(9, srcDriverDN);
+                } else {
+                    pstmt.setNull(9, Types.VARCHAR);
+                }
+                pstmt.executeUpdate();
             }
-            pstmt.executeUpdate();
+            returnConnection(conn);
+        } catch (SQLException e) {
+            // Connection may be bad — close it instead of returning to pool
+            try { conn.close(); } catch (SQLException ignored) {}
+            throw e;
         }
     }
 
