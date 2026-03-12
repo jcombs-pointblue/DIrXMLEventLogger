@@ -135,7 +135,42 @@ The driver uses the standard Identity Manager authentication fields:
 
 The web UI is a Flask application for browsing and searching the event database.
 
-### Running the web UI
+### Running with Docker (recommended)
+
+The easiest way to run the web UI, especially for non-developers, is with Docker.
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+2. Copy the example environment file and fill in your database credentials:
+
+```bash
+cd web
+cp .env.example .env
+```
+
+3. Edit `.env` with your database connection details:
+
+```
+DB_HOST=10.0.0.5
+DB_PORT=5432
+DB_NAME=idmEvent
+DB_USER=eventlogger_reader
+DB_PASSWORD=your_reader_password
+TABLE_NAME=public.dxmlevent
+```
+
+4. Start the application:
+
+```bash
+docker compose up
+```
+
+5. Open http://localhost:5000.
+
+To stop: `docker compose down`. To rebuild after updates: `docker compose build && docker compose up`.
+
+### Running with Python
+
+If you prefer to run without Docker:
 
 ```bash
 cd web
@@ -175,6 +210,7 @@ Then open http://localhost:5000.
 | **Home** | `/` | DN autocomplete search to find objects |
 | **Timeline** | `/timeline?srcdn=...` | Chronological event history for an object, filterable by event type, class name, and date range |
 | **Event Detail** | `/event?id=...` | Full JSON and XML view for a single event, with modify diff table showing old/new values and prev/next navigation |
+| **Recent** | `/recent` | Most recent events across all objects (default 100), filterable by type and driver |
 | **Search** | `/search` | Full-text search across all event JSON payloads with filters |
 | **Dashboard** | `/stats` | Event counts by type and class, most active objects, 30-day activity chart |
 | **CSV Export** | `/export/timeline?srcdn=...` | Download an object's complete event history as CSV |
