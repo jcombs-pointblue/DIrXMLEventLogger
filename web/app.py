@@ -282,6 +282,55 @@ def export_timeline():
     )
 
 
+@app.route("/recent")
+def recent():
+    """Show the most recent events across all objects."""
+    limit = int(request.args.get("limit", "100"))
+    event_type = request.args.get("event_type", "").strip()
+    src_driver = request.args.get("src_driver", "").strip()
+
+    conditions = []
+    params = []
+
+    if event_type:
+        conditions.append("eventtype = %s")
+        params.append(event_type)
+    if src_driver:
+        conditions.append("srcdriver = %s")
+        params.append(src_driver)
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    with get_db() as conn, conn.cursor() as cur:
+        cur.execute(f"SELECT DISTINCT eventtype FROM {TABLE_NAME} ORDER BY eventtype")
+        event_types = [r["eventtype"] for r in cur.fetchall()]
+
+        cur.execute(f"SELECT DISTINCT srcdriver FROM {TABLE_NAME} WHERE srcdriver IS NOT NULL ORDER BY srcdriver")
+        src_drivers = [r["srcdriver"] for r in cur.fetchall()]
+
+        cur.execute(
+            f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
+                       eventjson, cachedtime, srcdriver
+                FROM {TABLE_NAME}
+                {where}
+                ORDER BY cachedtime DESC, eventid DESC
+                LIMIT %s""",
+            params + [limit],
+        )
+        events = cur.fetchall()
+
+    for e in events:
+        if e["eventjson"] and isinstance(e["eventjson"], str):
+            try:
+                e["eventjson"] = json.loads(e["eventjson"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    return render_template("recent.html", events=events, limit=limit,
+                           event_type=event_type, src_driver=src_driver,
+                           event_types=event_types, src_drivers=src_drivers)
+
+
 @app.route("/stats")
 def stats():
     """Dashboard with event statistics."""
