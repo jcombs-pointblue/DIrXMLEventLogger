@@ -246,6 +246,44 @@ Events logged through PolicyLogger are written to the same table as the Event Lo
 
 The `srcdriver` column is set to the calling driver's DN (the `thisDriverDN` parameter). This lets you distinguish which driver an event came from and filter by source driver in the web UI. Events captured directly by the EventLoggerDriver on its own subscriber channel will have `srcdriver` set to the EventLoggerDriver's own DN.
 
+### Error handling and retries
+
+`logEvent()` returns `false` if the event could not be logged. This happens when:
+
+- The EventLoggerDriver is not running (not registered in the PolicyLogger registry)
+- The database connection is down
+- The XML could not be parsed or converted
+
+Errors are traced but never thrown, so the calling driver's policy execution continues normally. By default, a failed log is silently dropped.
+
+If you want to handle failures, check the return value. The simplest approach is fire-and-forget:
+
+```javascript
+// Fire and forget — event is silently dropped on failure
+PolicyLogger.logEvent(eventLoggerDN, thisDriverDN, "sub", "AD-Sub-ETP", xmlString);
+```
+
+If event logging is important but not critical, you can log a warning:
+
+```javascript
+var success = PolicyLogger.logEvent(eventLoggerDN, thisDriverDN, "sub", "AD-Sub-ETP", xmlString);
+if (!success) {
+    java.lang.System.out.println("WARNING: Failed to log event to Event Logger");
+}
+```
+
+If event logging is critical and you want the engine to retry the event, return a retry status. This will cause the IDM engine to requeue the event on the calling driver's subscriber channel, and the policy will fire again on the next attempt:
+
+```javascript
+var success = PolicyLogger.logEvent(eventLoggerDN, thisDriverDN, "sub", "AD-Sub-ETP", xmlString);
+if (!success) {
+    status.setLevel(StatusLevel.RETRY);
+    status.setMessage("Event Logger unavailable, retrying");
+}
+```
+
+**Caution:** Using retry will stall the calling driver's event processing until the Event Logger becomes available. All queued events on that driver will back up until the retry succeeds. Only use this if logging is critical enough to block the driver over.
+
 ### Multiple Event Logger drivers
 
 If you run more than one EventLoggerDriver (e.g., logging to different databases), each registers separately. Policy code references the DN of whichever Event Logger instance it wants to log through.

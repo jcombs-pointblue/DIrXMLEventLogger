@@ -6,6 +6,7 @@
             <th>Time</th>
             <th>Event Type</th>
             <th>Class</th>
+            <th>Driver</th>
             <th>Event ID</th>
             <th>Entry ID</th>
         </tr>
@@ -17,11 +18,12 @@
             <td class="mono">{{ event.cachedtime.strftime('%Y-%m-%d %H:%M:%S') if event.cachedtime else 'N/A' }}</td>
             <td><span class="badge badge-{{ event.eventtype }}">{{ event.eventtype }}</span></td>
             <td>{{ event.classname }}</td>
+            <td>{{ event.srcdriver.split('\\')[-1] if event.srcdriver else '' }}</td>
             <td class="mono">{{ event.eventid }}</td>
             <td class="mono">{{ event.srcentryid }}</td>
         </tr>
         <tr id="expand-{{ event.eventid }}" class="expand-content">
-            <td colspan="6" style="padding: 1rem;">
+            <td colspan="7" style="padding: 1rem;">
                 <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
                     <a href="/event?id={{ event.eventid|urlencode }}" class="btn" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">Full Detail</a>
                 </div>
