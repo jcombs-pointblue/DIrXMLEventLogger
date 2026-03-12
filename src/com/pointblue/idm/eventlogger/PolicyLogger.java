@@ -308,7 +308,7 @@ public class PolicyLogger {
      * @param logXML    {@code true} to store the XML document, {@code false} to store NULL
      * @throws SQLException if the database insert fails
      */
-    private void writeEventToDB(JSONObject eventJSON, String xmlString, boolean logXML) throws SQLException {
+    private synchronized void writeEventToDB(JSONObject eventJSON, String xmlString, boolean logXML) throws SQLException {
         writeEventToDB(eventJSON, xmlString, logXML, this.driverDN);
     }
 
@@ -321,7 +321,7 @@ public class PolicyLogger {
      * @param srcDriverDN  the DN of the driver that originated the event
      * @throws SQLException if the database insert fails
      */
-    private void writeEventToDB(JSONObject eventJSON, String xmlString, boolean logXML, String srcDriverDN) throws SQLException {
+    private synchronized void writeEventToDB(JSONObject eventJSON, String xmlString, boolean logXML, String srcDriverDN) throws SQLException {
         Connection conn = getConnection();
         String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\") VALUES(?,?,?,?,?,?,?,?,?);";
 
