@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Recent Events{% endblock %}
+{% block content %}
+<h1>Recent Events</h1>
+
+<div class="card">
+    <form action="/recent" method="get">
+        <div class="filter-bar">
+            <label>Type:</label>
+            <select name="event_type">
+                <option value="">All</option>
+                {% for et in event_types %}
+                <option value="{{ et }}" {% if et == event_type %}selected{% endif %}>{{ et }}</option>
+                {% endfor %}
+            </select>
+
+            {% if src_drivers %}
+            <label>Driver:</label>
+            <select name="src_driver">
+                <option value="">All</option>
+                {% for sd in src_drivers %}
+                <option value="{{ sd }}" {% if sd == src_driver %}selected{% endif %}>{{ sd.split('\\')[-1] if sd else sd }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+
+            <label>Show:</label>
+            <select name="limit">
+                {% for n in [50, 100, 250, 500, 1000] %}
+                <option value="{{ n }}" {% if n == limit %}selected{% endif %}>{{ n }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit">Filter</button>
+        </div>
+    </form>
+</div>
+
+<div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">
+    Showing {{ events|length }} most recent event{{ 's' if events|length != 1 }}
+</div>
+
+{% if events %}
+<table>
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>Event Type</th>
+            <th>Class</th>
+            <th>Source DN</th>
+            <th>Driver</th>
+            <th>Event ID</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for event in events %}
+        <tr class="expandable" onclick="toggleExpand('{{ event.eventid }}')">
+            <td class="mono">{{ event.cachedtime.strftime('%Y-%m-%d %H:%M:%S') if event.cachedtime else 'N/A' }}</td>
+            <td><span class="badge badge-{{ event.eventtype }}">{{ event.eventtype }}</span></td>
+            <td>{{ event.classname }}</td>
+            <td>
+                <a href="/timeline?srcdn={{ event.srcdn|urlencode }}" style="color: var(--accent); text-decoration: none;"
+                   onclick="event.stopPropagation();">
+                    <span class="mono" style="font-size: 0.8rem;">{{ event.srcdn }}</span>
+                </a>
+            </td>
+            <td>{{ event.srcdriver.split('\\')[-1] if event.srcdriver else '' }}</td>
+            <td class="mono">{{ event.eventid }}</td>
+        </tr>
+        <tr id="expand-{{ event.eventid }}" class="expand-content">
+            <td colspan="6" style="padding: 1rem;">
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <a href="/event?id={{ event.eventid|urlencode }}" class="btn" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">Full Detail</a>
+                    <a href="/timeline?srcdn={{ event.srcdn|urlencode }}" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">View Timeline</a>
+                </div>
+                {% if event.eventjson %}
+                <div class="json-view">{{ event.eventjson | tojson(indent=2) }}</div>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <p>No events found.</p>
+</div>
+{% endif %}
+{% endblock %}
