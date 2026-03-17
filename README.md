@@ -8,6 +8,10 @@ The Event Logger driver sits on the subscriber channel of an Identity Manager dr
 
 The companion web UI provides a forensic investigation interface: search for any object by DN and see a complete timeline of every event that affected it, with diff views for modify events showing exactly what changed.
 
+![Dashboard showing event counts by type, most active objects, events by class, and 30-day activity chart](media/Dashboeard.png)
+
+![Recent Events page listing the newest events across all objects with type and driver filters](media/EventList.png)
+
 ## Components
 
 ```
