@@ -1,6 +1,6 @@
 # DirXML Event Logger
 
-A NetIQ Identity Manager driver that captures events from the subscriber channel and logs them to a PostgreSQL database, along with a Flask web UI for browsing and forensic analysis.
+A NetIQ Identity Manager driver that captures events from the subscriber channel and logs them to a PostgreSQL database, along with a Flask web UI for browsing and forensic analysis. While it may be useful, this is not a comprehensive auditing solution. It is very useful during driver development as it can capture sample events to be used for testing.
 
 ## Overview
 
