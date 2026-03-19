@@ -439,6 +439,59 @@ SELECT cron.schedule(
 );
 ```
 
+### Size-based cleanup
+
+Instead of (or in addition to) age-based purging, you can trigger cleanup only when the table exceeds a size threshold. This function checks the table size first, then deletes the oldest events in batches until the table is under the target size:
+
+```sql
+CREATE OR REPLACE FUNCTION purge_events_by_size(
+    max_size_mb int DEFAULT 1000,
+    batch_size int DEFAULT 10000,
+    pause_ms int DEFAULT 100
+)
+RETURNS bigint LANGUAGE plpgsql AS $$
+DECLARE
+    total_deleted bigint := 0;
+    batch_deleted bigint;
+    current_size bigint;
+BEGIN
+    SELECT pg_total_relation_size('dxmlevent') INTO current_size;
+    IF current_size <= max_size_mb * 1024 * 1024 THEN
+        RETURN 0;
+    END IF;
+
+    LOOP
+        DELETE FROM dxmlevent
+        WHERE eventid IN (
+            SELECT eventid FROM dxmlevent
+            ORDER BY cachedtime ASC
+            LIMIT batch_size
+        );
+        GET DIAGNOSTICS batch_deleted = ROW_COUNT;
+        total_deleted := total_deleted + batch_deleted;
+        EXIT WHEN batch_deleted = 0;
+        PERFORM pg_sleep(pause_ms / 1000.0);
+
+        SELECT pg_total_relation_size('dxmlevent') INTO current_size;
+        EXIT WHEN current_size <= max_size_mb * 1024 * 1024;
+    END LOOP;
+    RETURN total_deleted;
+END;
+$$;
+```
+
+Schedule it to check daily — it will only delete if the table exceeds the threshold (1 GB in this example):
+
+```sql
+SELECT cron.schedule(
+    'purge-events-by-size',
+    '0 4 * * *',  -- every day at 4:00 AM
+    $$SELECT purge_events_by_size(1000, 10000, 100)$$
+);
+```
+
+> **Note:** `pg_total_relation_size` includes indexes and TOAST data. After large deletes, the disk space is not returned to the OS until you run `VACUUM FULL` or let autovacuum reclaim it. The table will appear to shrink to new queries immediately, but the on-disk file size may lag behind.
+
 ### Managing jobs
 
 ```sql
