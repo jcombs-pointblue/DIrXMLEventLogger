@@ -360,6 +360,98 @@ Get database size:
 SELECT pg_size_pretty(pg_database_size('idmEvent'));
 ```
 
+## Event Table Maintenance
+
+The event table will grow indefinitely. To automatically purge old events, use [pg_cron](https://github.com/citusdata/pg_cron) to schedule a nightly cleanup job.
+
+### Installing pg_cron
+
+pg_cron is available as a package on most PostgreSQL distributions. On Debian/Ubuntu:
+
+```bash
+sudo apt install postgresql-16-cron
+```
+
+Add it to `postgresql.conf`:
+
+```
+shared_preload_libraries = 'pg_cron'
+cron.database_name = 'idmEvent'
+```
+
+Restart PostgreSQL, then enable the extension:
+
+```sql
+CREATE EXTENSION pg_cron;
+```
+
+### Scheduling a cleanup job
+
+A simple `DELETE` that removes all events older than 30 days:
+
+```sql
+SELECT cron.schedule(
+    'purge-old-events',
+    '0 3 * * *',  -- every day at 3:00 AM
+    $$DELETE FROM dxmlevent WHERE cachedtime < now() - interval '30 days'$$
+);
+```
+
+### Batched deletes for large tables
+
+If the table is large, a single `DELETE` can hold locks and generate WAL traffic for an extended period. Use a batched approach that deletes in chunks of 10,000 rows with a short pause between batches. Create this function in the `idmEvent` database:
+
+```sql
+CREATE OR REPLACE FUNCTION purge_old_events(
+    retention_interval interval DEFAULT interval '30 days',
+    batch_size int DEFAULT 10000,
+    pause_ms int DEFAULT 100
+)
+RETURNS bigint LANGUAGE plpgsql AS $$
+DECLARE
+    total_deleted bigint := 0;
+    batch_deleted bigint;
+BEGIN
+    LOOP
+        DELETE FROM dxmlevent
+        WHERE eventid IN (
+            SELECT eventid FROM dxmlevent
+            WHERE cachedtime < now() - retention_interval
+            LIMIT batch_size
+        );
+        GET DIAGNOSTICS batch_deleted = ROW_COUNT;
+        total_deleted := total_deleted + batch_deleted;
+        EXIT WHEN batch_deleted = 0;
+        PERFORM pg_sleep(pause_ms / 1000.0);
+    END LOOP;
+    RETURN total_deleted;
+END;
+$$;
+```
+
+Then schedule it with pg_cron:
+
+```sql
+SELECT cron.schedule(
+    'purge-old-events-batched',
+    '0 3 * * *',
+    $$SELECT purge_old_events(interval '30 days', 10000, 100)$$
+);
+```
+
+### Managing jobs
+
+```sql
+-- List scheduled jobs
+SELECT * FROM cron.job;
+
+-- View recent job run history
+SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 10;
+
+-- Remove a job
+SELECT cron.unschedule('purge-old-events-batched');
+```
+
 ## License
 
 Copyright Point Blue Technology. This code is public domain and may be used in any way you like.
