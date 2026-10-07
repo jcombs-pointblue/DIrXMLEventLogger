@@ -5,7 +5,7 @@ DirXMLDev core, the DirXMLDevWeb workbench, the simulator and the bundled Flask 
 the read-only account and never write to the table. Only the engine writes, through the
 EventLogger driver and `PolicyLogger`.
 
-Applies to schema version 2 (release 1.0.0 and later). Rows written earlier have
+Applies to schema version 2 (release 2.0.0 and later). Rows written earlier have
 `schemaversion = 1`; see [Version 1 rows](#version-1-rows).
 
 ## Table
@@ -28,7 +28,7 @@ One table, `public.dxmlevent` by default. The driver option `tableName` and the 
 | `channel` | `varchar` | yes | PolicyLogger rows only: `subscriber` or `publisher` |
 | `policy` | `varchar` | yes | PolicyLogger rows only: the policy name or DN, exactly as the policy passed it |
 | `stage` | `varchar` | yes | PolicyLogger rows only: `input` (the document going into the policy) or `output` (its result) |
-| `schemaversion` | `smallint` | no | Shape of `eventjson`: `2` for current rows, `1` for rows written before release 1.0.0 or by older driver jars |
+| `schemaversion` | `smallint` | no | Shape of `eventjson`: `2` for current rows, `1` for rows written before release 2.0.0 or by older driver jars |
 
 **Driver rows and PolicyLogger rows.** `policy IS NULL` means the EventLogger driver captured the
 event on its own subscriber channel, after its own filter. `policy IS NOT NULL` means a policy on
