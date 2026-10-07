@@ -37,8 +37,11 @@ web/
   requirements.txt            Python dependencies
   Dockerfile                  Web UI container image
   templates/                  Jinja2 templates
-docker-compose.yml            Web UI + optional PostgreSQL (--profile db)
-docker/postgres-init/         First-start account setup for the bundled database
+docker/
+  compose.yml                 Web UI + optional PostgreSQL with pg_cron (--profile db)
+  engine.example.yml          Mounting the jars into an engine container
+  postgres/                   PostgreSQL + pg_cron image
+  postgres-init/              First-start accounts and cleanup job for the bundled database
 sql/
   CREATE jsonEvent.sql        Table and index DDL
   *.sql                       Example queries
@@ -224,32 +227,37 @@ The web UI is a Flask application for browsing and searching the event database.
 
 ### Running with Docker (recommended)
 
-The repository includes a compose file that runs the web UI and, optionally, a ready-to-use PostgreSQL database. It works on Windows, macOS (Intel and Apple Silicon) and Linux with [Docker Desktop](https://www.docker.com/products/docker-desktop/), Docker Engine or Podman (`podman compose`).
+`docker/compose.yml` runs the web UI and, optionally, a ready-to-use PostgreSQL. It works on Windows, macOS (Intel and Apple Silicon) and Linux with [Docker Desktop](https://www.docker.com/products/docker-desktop/), Docker Engine or Podman (`podman compose`).
 
-1. From the repository root, copy the example environment file and change the passwords:
+1. Copy the example settings and replace every `change_me` value:
 
 ```bash
+cd docker
 cp .env.example .env
 ```
 
+   `EVENTLOGGER_VERSION` picks the release. The web UI image and the engine jars are both taken from that release, so they always match.
+
 2. Start the stack.
 
-   **With the bundled database** (good for driver development and testing). Leave `DB_HOST=postgres` in `.env`:
+   **With the bundled database** (good for driver development and labs). Leave `DB_HOST=postgres`:
 
    ```bash
    docker compose --profile db up -d
    ```
 
-   On first start the database is created with the event table, its indexes and two accounts:
+   On first start the database is created with the event table, its indexes, and two accounts:
 
    | Account | Access | Used by |
    |---------|--------|---------|
    | `eventlogger_writer` (`WRITER_USER`) | SELECT, INSERT | The Event Logger driver |
-   | `eventlogger_reader` (`DB_USER`) | SELECT only | The web UI |
+   | `eventlogger_reader` (`DB_USER`) | SELECT only | The web UI and other readers |
 
-   Point the driver at it: **Authentication ID** `eventlogger_writer`, **Authentication Context** `<docker-host>:5432/idmEvent`, **Application Password** the `WRITER_PASSWORD` value. Data is kept in the `pgdata` volume. The accounts are only created on first start, so to change their passwords later, use `ALTER ROLE` or delete the volume (`docker compose --profile db down -v`, which deletes all events).
+   It also installs [pg_cron](https://github.com/citusdata/pg_cron) and schedules the [size-based cleanup](#size-based-cleanup). At `PURGE_SCHEDULE` (default 04:00 UTC daily), the oldest events are deleted until the table is under `EVENT_MAX_SIZE_MB` (default 1000).
 
-   **With an existing database.** Set `DB_HOST` in `.env` to your PostgreSQL server and create the read-only user as shown in [Database Setup](#3-create-a-read-only-user-for-the-web-ui), then:
+   Point the driver at it: **Authentication ID** `eventlogger_writer`, **Authentication Context** `<docker-host>:5432/idmEvent`, **Application Password** the `WRITER_PASSWORD` value. Data is kept in the `pgdata` volume. Accounts and the cleanup job are only created on first start, so to change them later use SQL, or delete the volume (`docker compose --profile db down -v`, which deletes all events).
+
+   **With an existing database.** Set `DB_HOST` to your PostgreSQL server and create the read-only user as shown in [Database Setup](#3-create-a-read-only-user-for-the-web-ui), then:
 
    ```bash
    docker compose up -d
@@ -257,9 +265,31 @@ cp .env.example .env
 
 3. Open http://localhost:5000 (change the port with `WEB_PORT`).
 
-The web image is published to GitHub Container Registry for `linux/amd64` and `linux/arm64`. `docker compose pull` fetches the latest published image; `docker compose up -d --build` builds it from source instead. To stop: `docker compose --profile db down`.
+`docker compose pull` fetches the published web image (`linux/amd64` and `linux/arm64`, from GitHub Container Registry). `docker compose up -d --build` builds it from source instead. The bundled PostgreSQL image is always built locally, since it is `postgres:17` plus pg_cron. To stop: `docker compose --profile db down`.
 
-The container runs the app under gunicorn as a non-root user and exposes `/health` for health checks.
+The web container runs under gunicorn as a non-root user and exposes `/health` for health checks.
+
+### Putting the driver on an engine container's classpath
+
+If your Identity Manager engine runs in a container, mount the two jars into it:
+
+1. Download the jars of release `EVENTLOGGER_VERSION` into `docker/engine-jars/`:
+
+   ```bash
+   docker compose run --rm fetch-jars
+   ```
+
+2. Add the two file mounts from [`docker/engine.example.yml`](docker/engine.example.yml) to your engine container's service. Mount the jar files, not the directory: mounting over `/opt/novell/eDirectory/lib/dirxml/classes/` would hide the engine's own jars.
+
+   ```yaml
+   volumes:
+     - ./engine-jars/dirxml-event-logger-${EVENTLOGGER_VERSION}.jar:/opt/novell/eDirectory/lib/dirxml/classes/dirxml-event-logger.jar:ro
+     - ./engine-jars/postgresql.jar:/opt/novell/eDirectory/lib/dirxml/classes/postgresql.jar:ro
+   ```
+
+3. Restart the engine container (`docker compose restart <engine-service>`) so the JVM loads them, and check the trace for `DirXML Event Logger version <version>`.
+
+The engine image itself is not part of this project.
 
 ### Running with Python
 
@@ -535,44 +565,13 @@ SELECT cron.schedule(
 
 ### Size-based cleanup
 
-Instead of (or in addition to) age-based purging, you can trigger cleanup only when the table exceeds a size threshold. This function checks the table size first, then deletes the oldest events in batches until the table is under the target size:
+Instead of (or in addition to) age-based purging, you can trigger cleanup only when the table exceeds a size threshold. [`sql/purge_events_by_size.sql`](sql/purge_events_by_size.sql) creates `purge_events_by_size(max_size_mb, batch_size, pause_ms)`. It checks the table size first, then deletes the oldest events in batches until the table is under the target size. Install it in the `idmEvent` database:
 
-```sql
-CREATE OR REPLACE FUNCTION purge_events_by_size(
-    max_size_mb int DEFAULT 1000,
-    batch_size int DEFAULT 10000,
-    pause_ms int DEFAULT 100
-)
-RETURNS bigint LANGUAGE plpgsql AS $$
-DECLARE
-    total_deleted bigint := 0;
-    batch_deleted bigint;
-    current_size bigint;
-BEGIN
-    SELECT pg_total_relation_size('dxmlevent') INTO current_size;
-    IF current_size <= max_size_mb * 1024 * 1024 THEN
-        RETURN 0;
-    END IF;
-
-    LOOP
-        DELETE FROM dxmlevent
-        WHERE id IN (
-            SELECT id FROM dxmlevent
-            ORDER BY cachedtime ASC
-            LIMIT batch_size
-        );
-        GET DIAGNOSTICS batch_deleted = ROW_COUNT;
-        total_deleted := total_deleted + batch_deleted;
-        EXIT WHEN batch_deleted = 0;
-        PERFORM pg_sleep(pause_ms / 1000.0);
-
-        SELECT pg_total_relation_size('dxmlevent') INTO current_size;
-        EXIT WHEN current_size <= max_size_mb * 1024 * 1024;
-    END LOOP;
-    RETURN total_deleted;
-END;
-$$;
+```bash
+psql -d idmEvent -f sql/purge_events_by_size.sql
 ```
+
+The bundled database in `docker/compose.yml` installs and schedules it automatically.
 
 Schedule it to check daily — it will only delete if the table exceeds the threshold (1 GB in this example):
 

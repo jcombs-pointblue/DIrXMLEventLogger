@@ -16,8 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `EventLoggerDriver.VERSION`, written to the trace on `init()`.
 - Password redaction: password values are replaced with `***` in both `eventjson` and
   `xmlevent` before storage.
-- Container deployment: the web UI image (amd64/arm64, published to GHCR) and a compose file
-  with an optional bundled PostgreSQL.
+- Container deployment (`docker/compose.yml`): the web UI image (amd64/arm64, published to
+  GHCR with the release version) and an optional bundled PostgreSQL that applies the schema,
+  creates the writer and reader accounts, and schedules the size-based cleanup with pg_cron.
+  `fetch-jars` downloads a release's jars for mounting into an engine container.
+- `sql/purge_events_by_size.sql`.
 - Indexes on `(srcdn, cachedtime)`, `cachedtime`, `eventid` and `(srcdriver, policy)`.
 - `channel`, `policy` and `stage` columns for PolicyLogger rows, and a
   `PolicyLogger.logEvent(..., stage, xml)` overload (stage defaults to `input`).
