@@ -1,0 +1,74 @@
+# Run from this directory, after `cp .env.example .env`:
+#   Web UI only (existing database):     docker compose up -d
+#   Web UI + bundled PostgreSQL:          docker compose --profile db up -d
+#   Download the jars for the engine:     docker compose run --rm fetch-jars
+# Works with Docker Desktop (Windows/macOS), Docker Engine and Podman (podman compose).
+
+services:
+  web:
+    # Same version as the driver jar (EVENTLOGGER_VERSION); both come from one release.
+    image: ghcr.io/jcombs-pointblue/dirxmleventlogger-web:${EVENTLOGGER_VERSION:?Set EVENTLOGGER_VERSION in .env}
+    build: ../web
+    ports:
+      - "${WEB_PORT:-5000}:5000"
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-idmEvent}
+      DB_USER: ${DB_USER:-eventlogger_reader}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      TABLE_NAME: ${TABLE_NAME:-public.dxmlevent}
+    restart: unless-stopped
+
+  postgres:
+    build: postgres
+    image: dirxmleventlogger-postgres:17-cron
+    profiles: ["db"]
+    command: ["postgres", "-c", "shared_preload_libraries=pg_cron", "-c", "cron.database_name=${DB_NAME:-idmEvent}"]
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME:-idmEvent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      READER_USER: ${DB_USER:-eventlogger_reader}
+      READER_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      WRITER_USER: ${WRITER_USER:-eventlogger_writer}
+      WRITER_PASSWORD: ${WRITER_PASSWORD:?Set WRITER_PASSWORD in .env}
+      EVENT_MAX_SIZE_MB: ${EVENT_MAX_SIZE_MB:-1000}
+      PURGE_SCHEDULE: ${PURGE_SCHEDULE:-0 4 * * *}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - "../sql/CREATE jsonEvent.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro"
+      - ./postgres-init/02-roles.sh:/docker-entrypoint-initdb.d/02-roles.sh:ro
+      - ./postgres-init/03-cleanup.sh:/docker-entrypoint-initdb.d/03-cleanup.sh:ro
+      - ../sql/purge_events_by_size.sql:/opt/eventlogger/purge_events_by_size.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Downloads the shim jar and the JDBC driver of release EVENTLOGGER_VERSION into
+  # ./engine-jars, for mounting into an Identity Manager engine container.
+  fetch-jars:
+    image: curlimages/curl:8.10.1
+    profiles: ["tools"]
+    user: "0"
+    working_dir: /out
+    volumes:
+      - ./engine-jars:/out
+    environment:
+      VERSION: ${EVENTLOGGER_VERSION:?Set EVENTLOGGER_VERSION in .env}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        base=https://github.com/jcombs-pointblue/DIrXMLEventLogger/releases/download/v$$VERSION
+        curl -fsSLO "$$base/dirxml-event-logger-$$VERSION.jar"
+        jdbc=$$(curl -fsSL "https://api.github.com/repos/jcombs-pointblue/DIrXMLEventLogger/releases/tags/v$$VERSION" | grep -o '"name": *"postgresql-[^"]*\.jar"' | grep -o 'postgresql-[^"]*\.jar')
+        curl -fsSL -o postgresql.jar "$$base/$$jdbc"
+        ls -l /out
+
+volumes:
+  pgdata:

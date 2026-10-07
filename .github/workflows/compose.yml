@@ -1,0 +1,53 @@
+name: Compose stack
+
+on:
+  push:
+    paths: ["docker/**", "sql/**", "web/**", ".github/workflows/compose.yml"]
+  pull_request:
+    paths: ["docker/**", "sql/**", "web/**", ".github/workflows/compose.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start web UI + bundled PostgreSQL (built from source)
+        run: |
+          cp .env.example .env
+          docker compose --profile db up -d --build --wait --wait-timeout 180
+
+      - name: Schema, accounts and pg_cron cleanup are in place
+        run: |
+          psql_as() { docker compose exec -T -e PGPASSWORD="$2" postgres psql -h localhost -U "$1" -d idmEvent -tAc "$3"; }
+          set -x
+          # writer can insert (needs the id sequence), reader can read but not delete
+          psql_as eventlogger_writer change_me_writer \
+            "INSERT INTO dxmlevent (eventid,classname,eventtype,eventjson,cachedtime,schemaversion) VALUES ('1#1','User','add','{}',now(),2)"
+          test "$(psql_as eventlogger_reader change_me_reader 'SELECT count(*) FROM dxmlevent')" = 1
+          ! psql_as eventlogger_reader change_me_reader 'DELETE FROM dxmlevent'
+          # cleanup job scheduled, and the function runs (table is under the limit: deletes nothing)
+          test "$(psql_as postgres change_me_admin "SELECT schedule FROM cron.job WHERE jobname='purge-events-by-size'")" = "0 4 * * *"
+          test "$(psql_as postgres change_me_admin 'SELECT purge_events_by_size(1000)')" = 0
+          test "$(psql_as postgres change_me_admin 'SELECT purge_events_by_size(0, 10, 0)')" = 1
+
+      - name: Web UI answers
+        run: |
+          curl -fsS http://localhost:5000/health
+          curl -fsS -o /dev/null http://localhost:5000/recent
+          curl -fsS -o /dev/null http://localhost:5000/stats
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose --profile db logs
+
+      - name: Stop
+        if: always()
+        run: docker compose --profile db down -v

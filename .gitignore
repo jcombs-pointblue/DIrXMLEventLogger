@@ -40,3 +40,7 @@ lib/*.jar
 ### Python ###
 __pycache__/
 *.pyc
+
+### Docker ###
+docker/.env
+docker/engine-jars/
