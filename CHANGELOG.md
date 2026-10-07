@@ -66,6 +66,16 @@ the new jar or web UI (see the README, "Upgrading an existing database").
 - Web UI: database connections are closed after each request; the Flask debugger is off by
   default; bad `page` values no longer fail the request and `/recent` is capped at 1000 rows;
   the CSV export filename is sanitized.
+- Building against the real engine jars also needs `dirxml_misc.jar` in `lib/` (`ShimParams`
+  references `MessageSource` from it); the `engine` profile now adds it.
+
+### Verified
+- Compiled and tested against the Identity Manager 4.x engine jars (Designer 4.0).
+- Ran on an Identity Manager 4.8.7 engine (eDirectory 9.2.8) against a 1.0.0 table upgraded with
+  the migration script: add, modify and password-change events were logged with
+  `schemaversion` 2 and the password stored as `***` in both `eventjson` and `xmlevent`, and
+  queued events from before the upgrade were logged. PolicyLogger calls from an ECMAScript
+  policy were not tested on an engine (unit and PostgreSQL integration tests only).
 
 ## [1.0.0] - 2026-04-23
 
