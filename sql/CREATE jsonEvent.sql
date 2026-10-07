@@ -12,7 +12,12 @@ CREATE TABLE IF NOT EXISTS dxmlevent (
 	"srcdriver" character varying,
 	PRIMARY KEY("eventid")
 );
-CREATE INDEX idx_srcdn_reverse ON dxmlevent (REVERSE("srcdn"));
-CREATE INDEX idx_srcdriver ON dxmlevent ("srcdriver");
+-- Subtree queries: reverse(srcdn) LIKE reverse('%...')
+CREATE INDEX IF NOT EXISTS idx_srcdn_reverse ON dxmlevent (REVERSE("srcdn"));
+-- Timeline and event detail: srcdn = ? ORDER BY cachedtime
+CREATE INDEX IF NOT EXISTS idx_srcdn_cachedtime ON dxmlevent ("srcdn", "cachedtime");
+-- Recent events, dashboard, date filters and purge jobs
+CREATE INDEX IF NOT EXISTS idx_cachedtime ON dxmlevent ("cachedtime");
+CREATE INDEX IF NOT EXISTS idx_srcdriver ON dxmlevent ("srcdriver");
 
 COMMIT;
