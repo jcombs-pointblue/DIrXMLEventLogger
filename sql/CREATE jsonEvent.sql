@@ -1,6 +1,7 @@
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS dxmlevent (
+	"id" bigserial PRIMARY KEY,
 	"eventid" character varying NOT NULL,
 	"classname" character varying NOT NULL,
 	"srcdn" character varying,
@@ -10,9 +11,25 @@ CREATE TABLE IF NOT EXISTS dxmlevent (
 	"xmlevent" text,
 	"cachedtime" timestamp with time zone NOT NULL,
 	"srcdriver" character varying,
-	PRIMARY KEY("eventid")
+	-- PolicyLogger rows only; NULL for rows written by the EventLogger driver itself
+	"channel" character varying CHECK ("channel" IN ('subscriber', 'publisher')),
+	"policy" character varying,
+	"stage" character varying CHECK ("stage" IN ('input', 'output')),
+	-- Shape of eventjson: 1 = written before schemaVersion existed, 2 = current (see docs/store.md)
+	"schemaversion" smallint NOT NULL DEFAULT 1
 );
-CREATE INDEX idx_srcdn_reverse ON dxmlevent (REVERSE("srcdn"));
-CREATE INDEX idx_srcdriver ON dxmlevent ("srcdriver");
+-- One driver row per engine event; PolicyLogger may log the same event at many policies
+CREATE UNIQUE INDEX IF NOT EXISTS ux_dxmlevent_driver_eventid ON dxmlevent ("eventid") WHERE "policy" IS NULL;
+CREATE INDEX IF NOT EXISTS idx_eventid ON dxmlevent ("eventid");
+-- Subtree: srcdn LIKE '\TREE\data\%' ESCAPE ''  (pattern_ops: works under any collation)
+CREATE INDEX IF NOT EXISTS idx_srcdn_prefix ON dxmlevent ("srcdn" text_pattern_ops);
+-- DN ends with: reverse(srcdn) LIKE reverse('%\jdoe') ESCAPE ''
+CREATE INDEX IF NOT EXISTS idx_srcdn_reverse_pattern ON dxmlevent (REVERSE("srcdn") text_pattern_ops);
+-- Timeline and event detail: srcdn = ? ORDER BY cachedtime
+CREATE INDEX IF NOT EXISTS idx_srcdn_cachedtime ON dxmlevent ("srcdn", "cachedtime");
+-- Recent events, dashboard, date filters and purge jobs
+CREATE INDEX IF NOT EXISTS idx_cachedtime ON dxmlevent ("cachedtime");
+-- By driver, and by driver + policy
+CREATE INDEX IF NOT EXISTS idx_srcdriver_policy ON dxmlevent ("srcdriver", "policy");
 
 COMMIT;

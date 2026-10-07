@@ -1,18 +1,8 @@
 package com.pointblue.idm.eventlogger;
 
 import com.novell.nds.dirxml.driver.Trace;
-import com.novell.nds.dirxml.driver.XmlDocument;
-import com.pointblue.idm.eventlogger.json.JSONObject;
-import com.pointblue.idm.eventlogger.xds2json.*;
-import org.postgresql.util.PGobject;
-import org.w3c.dom.Document;
-import org.w3c.dom.NodeList;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.StringReader;
 import java.sql.*;
-import java.time.Instant;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -156,6 +146,26 @@ public class PolicyLogger {
      * @return {@code true} if the event was logged successfully, {@code false} on error
      */
     public static boolean logEvent(String eventLoggerDN, String srcDriverDN, String channel, String policyDN, String xmlString) {
+        return logEvent(eventLoggerDN, srcDriverDN, channel, policyDN, "input", xmlString);
+    }
+
+    /**
+     * Logs an XDS XML event, recording whether the document is the policy's input or output.
+     * <p>
+     * Stores {@code channel}, {@code policy} and {@code stage} in their own columns.
+     * <pre>
+     *   PolicyLogger.logEvent(eventLoggerDN, thisDriverDN, "sub", "AD-Sub-ETP", "output", XPATH.get("/"));
+     * </pre>
+     *
+     * @param eventLoggerDN the DN of the EventLoggerDriver to log through
+     * @param srcDriverDN   the DN of the driver whose policy is calling this method (stored in {@code srcdriver})
+     * @param channel       "subscriber" or "publisher" ("sub" and "pub" are accepted)
+     * @param policyDN      the name or DN of the calling policy, stored as given in {@code policy}
+     * @param stage         "input" or "output" (null or empty means "input")
+     * @param xmlString     the XDS XML document as a string
+     * @return {@code true} if the event was logged successfully, {@code false} on error
+     */
+    public static boolean logEvent(String eventLoggerDN, String srcDriverDN, String channel, String policyDN, String stage, String xmlString) {
         Trace trace = new Trace("PolicyLogger");
 
         PolicyLogger logger = registry.get(eventLoggerDN);
@@ -165,43 +175,21 @@ public class PolicyLogger {
         }
 
         try {
-            // Determine event type from XML
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(new org.xml.sax.InputSource(new StringReader(xmlString)));
+            EventRecord record = EventRecords.prepare(xmlString);
+            EventRecords.setPolicySource(record, channel, policyDN, stage);
 
-            String[] eventTypes = {"add", "modify", "delete", "sync", "rename", "move"};
-            String detectedType = null;
-            for (String type : eventTypes) {
-                NodeList nodes = doc.getElementsByTagName(type);
-                if (nodes.getLength() > 0) {
-                    detectedType = type;
-                    break;
-                }
-            }
-
-            if (detectedType == null) {
-                trace.trace("PolicyLogger.logEvent: No recognized event type in XML from policy " + policyDN, 1);
-                return false;
-            }
-
-            // Convert to JSON
-            BaseEventConverter converter = getConverterForType(detectedType);
-            String jsonString = converter.convertToJson(xmlString);
-            JSONObject eventJSON = new JSONObject(jsonString);
-
-            // Add policy metadata
-            eventJSON.put("logged-by-policy", policyDN);
-            eventJSON.put("logged-channel", channel);
+            // Also in the JSON, for readers of rows written before the columns existed
+            record.json.put("logged-by-policy", policyDN);
+            record.json.put("logged-channel", channel);
 
             // Write to DB with the calling driver's DN as the source
-            logger.writeEventToDB(eventJSON, xmlString, logger.logXML, srcDriverDN);
-            trace.trace("PolicyLogger.logEvent: Logged " + detectedType + " event from policy " + policyDN + " on driver " + srcDriverDN, 3);
+            logger.write(record, srcDriverDN);
+            trace.trace("PolicyLogger.logEvent: Logged " + record.eventType() + " event from policy " + policyDN + " on driver " + srcDriverDN, 3);
             return true;
 
+        } catch (IllegalArgumentException e) {
+            trace.trace("PolicyLogger.logEvent: " + e.getMessage() + " (policy " + policyDN + ")", 1);
+            return false;
         } catch (Exception e) {
             trace.trace("PolicyLogger.logEvent error from policy " + policyDN + ": " + e.getMessage(), 0);
             return false;
@@ -330,85 +318,24 @@ public class PolicyLogger {
     }
 
     /**
-     * Writes an event to the database using a pre-built JSON object and XmlDocument.
-     *
-     * @param eventJSON the event data as a JSON object
-     * @param doc       the original XDS XML document
-     * @param logXML    {@code true} to store the XML document, {@code false} to store NULL
-     * @throws SQLException if the database insert fails
-     */
-    public void writeEventToDB(JSONObject eventJSON, XmlDocument doc, boolean logXML) throws SQLException {
-        writeEventToDB(eventJSON, logXML ? doc.getDocumentString() : null, logXML, this.driverDN);
-    }
-
-    /**
-     * Writes an event to the database with an explicit source driver DN.
+     * Writes a prepared record using a pooled connection.
      * <p>
      * Borrows a connection from the pool, executes the INSERT, and returns the
      * connection. Each caller gets its own connection, so no synchronization is needed.
      *
-     * @param eventJSON    the event data as a JSON object
-     * @param xmlString    the XML document as a string, or {@code null} if not storing XML
-     * @param logXML       {@code true} to store the XML document, {@code false} to store NULL
-     * @param srcDriverDN  the DN of the driver that originated the event
+     * @param record      the record to store
+     * @param srcDriverDN the DN of the driver that originated the event
      * @throws SQLException if the database insert fails
      */
-    private void writeEventToDB(JSONObject eventJSON, String xmlString, boolean logXML, String srcDriverDN) throws SQLException {
+    private void write(EventRecord record, String srcDriverDN) throws SQLException {
         Connection conn = borrowConnection();
         try {
-            String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\") VALUES(?,?,?,?,?,?,?,?,?);";
-
-            try (PreparedStatement pstmt = conn.prepareStatement(sql))
-            {
-                long epochSeconds = Long.parseLong(eventJSON.getString("timestamp").split("#")[0]);
-                Timestamp timestamp = Timestamp.from(Instant.ofEpochSecond(epochSeconds));
-                pstmt.setTimestamp(7, timestamp);
-                pstmt.setString(1, eventJSON.getString("event-id"));
-                pstmt.setString(2, eventJSON.getString("class-name"));
-                pstmt.setString(3, eventJSON.getString("src-dn"));
-                pstmt.setString(4, eventJSON.getString("src-entry-id"));
-                pstmt.setString(5, eventJSON.getString("event-type"));
-
-                PGobject jsonObject = new PGobject();
-                jsonObject.setType("json");
-                jsonObject.setValue(eventJSON.toString());
-                pstmt.setObject(6, jsonObject);
-
-                if (logXML && xmlString != null)
-                {
-                    pstmt.setString(8, xmlString);
-                } else
-                {
-                    pstmt.setNull(8, Types.VARCHAR);
-                }
-
-                if (srcDriverDN != null) {
-                    pstmt.setString(9, srcDriverDN);
-                } else {
-                    pstmt.setNull(9, Types.VARCHAR);
-                }
-                pstmt.executeUpdate();
-            }
+            EventRecords.insert(conn, tableName, record, logXML, srcDriverDN);
             returnConnection(conn);
         } catch (SQLException e) {
             // Connection may be bad — close it instead of returning to pool
             try { conn.close(); } catch (SQLException ignored) {}
             throw e;
-        }
-    }
-
-    /**
-     * Returns the appropriate event converter for a given event type.
-     */
-    private static BaseEventConverter getConverterForType(String eventType) {
-        switch (eventType) {
-            case "add":    return new AddEventConverter();
-            case "modify": return new ModifyEventConverter();
-            case "delete": return new DeleteEventConverter();
-            case "sync":   return new SyncEventConverter();
-            case "rename": return new RenameEventConverter();
-            case "move":   return new MoveEventConverter();
-            default: throw new IllegalArgumentException("Unknown event type: " + eventType);
         }
     }
 }

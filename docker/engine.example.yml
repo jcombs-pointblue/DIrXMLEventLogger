@@ -1,0 +1,14 @@
+# Example: put the Event Logger on an Identity Manager engine container's classpath.
+# Merge these lines into the compose file that runs your engine container (the engine
+# image is not part of this project). Run `docker compose run --rm fetch-jars` first.
+#
+# Mount the two jar FILES, not the directory: mounting over
+# /opt/novell/eDirectory/lib/dirxml/classes would hide the engine's own jars.
+# Then restart the engine container so the JVM loads them:
+#   docker compose restart <engine-service>
+
+services:
+  idm-engine:                       # your engine service name
+    volumes:
+      - ./engine-jars/dirxml-event-logger-${EVENTLOGGER_VERSION}.jar:/opt/novell/eDirectory/lib/dirxml/classes/dirxml-event-logger.jar:ro
+      - ./engine-jars/postgresql.jar:/opt/novell/eDirectory/lib/dirxml/classes/postgresql.jar:ro

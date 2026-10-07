@@ -1,0 +1,25 @@
+<nds dtdversion="4.0" ndsversion="8.x">
+  <input>
+    <modify class-name="User" event-id="edir3#20261007141600#1#2" src-dn="\TREE\data\users\jdoe" src-entry-id="35868" timestamp="1759846560#2">
+      <association state="associated">jdoe</association>
+      <modify-attr attr-name="Given Name">
+        <remove-value>
+          <value timestamp="1759846502#2" type="string">Johnny</value>
+        </remove-value>
+        <add-value>
+          <value timestamp="1759846560#1" type="string">John</value>
+        </add-value>
+      </modify-attr>
+      <modify-attr attr-name="Telephone Number">
+        <remove-all-values/>
+        <add-value>
+          <value type="teleNumber">555-0102</value>
+          <value type="teleNumber">555-0103</value>
+        </add-value>
+      </modify-attr>
+      <operation-data>
+        <correlation-id>def-456</correlation-id>
+      </operation-data>
+    </modify>
+  </input>
+</nds>

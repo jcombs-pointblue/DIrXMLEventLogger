@@ -25,8 +25,7 @@ public class RenameEventConverter extends BaseEventConverter {
         Element renameElement = (Element) renameNodes.item(0);
         Map<String, Object> jsonMap = convertRenameElementToJson(renameElement);
 
-        jsonMap.put("event-type", "rename");
-        return formatJson(jsonMap, 0);
+        return finish(jsonMap, "rename");
     }
 
     private Map<String, Object> convertRenameElementToJson(Element renameElement) {
@@ -49,6 +48,12 @@ public class RenameEventConverter extends BaseEventConverter {
             Element toElement = (Element) toNodes.item(0);
             String toValue = toElement.getTextContent();
             jsonMap.put("to", toValue != null ? toValue.trim() : "");
+        }
+
+        // XDS carries the new RDN in <new-name>
+        Element newName = firstChild(renameElement, "new-name");
+        if (newName != null) {
+            jsonMap.put("new-name", newName.getTextContent().trim());
         }
 
         processOperationData(renameElement, jsonMap);
