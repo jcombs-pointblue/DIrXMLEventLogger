@@ -1,0 +1,11 @@
+<nds dtdversion="4.0" ndsversion="8.x">
+  <input>
+    <sync class-name="User" event-id="edir3#20261007141800#1#4" src-dn="\TREE\data\users\jdoe" src-entry-id="35868" timestamp="1759846680#1">
+      <association>CN=jdoe,OU=users,O=company</association>
+      <add-attr attr-name="CN">
+        <value timestamp="1759846502#1" type="string">jdoe</value>
+      </add-attr>
+      <status>success</status>
+    </sync>
+  </input>
+</nds>

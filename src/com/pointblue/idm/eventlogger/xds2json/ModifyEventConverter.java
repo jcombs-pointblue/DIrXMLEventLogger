@@ -27,8 +27,7 @@ public class ModifyEventConverter extends BaseEventConverter {
         Element modifyElement = (Element) modifyNodes.item(0);
         Map<String, Object> jsonMap = convertModifyElementToJson(modifyElement);
 
-        jsonMap.put("event-type", "modify");
-        return formatJson(jsonMap, 0);
+        return finish(jsonMap, "modify");
     }
 
     private Map<String, Object> convertModifyElementToJson(Element modifyElement) {
@@ -52,8 +51,11 @@ public class ModifyEventConverter extends BaseEventConverter {
                 if (addValueNodes.getLength() > 0) {
                     List<Object> addValuesList = new ArrayList<>();
                     for (int j = 0; j < addValueNodes.getLength(); j++) {
-                        Element valueElement = (Element) addValueNodes.item(j);
-                        addValuesList.add(convertValueElementToJson(valueElement));
+                        // Each <add-value> holds one or more <value> elements
+                        NodeList values = ((Element) addValueNodes.item(j)).getElementsByTagName("value");
+                        for (int k = 0; k < values.getLength(); k++) {
+                            addValuesList.add(convertValueElementToJson((Element) values.item(k)));
+                        }
                     }
                     attrModificationMap.put("add-values", addValuesList);
                 }
@@ -63,8 +65,11 @@ public class ModifyEventConverter extends BaseEventConverter {
                 if (removeValueNodes.getLength() > 0) {
                     List<Object> removeValuesList = new ArrayList<>();
                     for (int j = 0; j < removeValueNodes.getLength(); j++) {
-                        Element valueElement = (Element) removeValueNodes.item(j);
-                        removeValuesList.add(convertValueElementToJson(valueElement));
+                        // Each <remove-value> holds one or more <value> elements
+                        NodeList values = ((Element) removeValueNodes.item(j)).getElementsByTagName("value");
+                        for (int k = 0; k < values.getLength(); k++) {
+                            removeValuesList.add(convertValueElementToJson((Element) values.item(k)));
+                        }
                     }
                     attrModificationMap.put("remove-values", removeValuesList);
                 }

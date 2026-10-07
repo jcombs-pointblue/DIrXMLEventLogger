@@ -25,8 +25,7 @@ public class SyncEventConverter extends BaseEventConverter {
         Element syncElement = (Element) syncNodes.item(0);
         Map<String, Object> jsonMap = convertSyncElementToJson(syncElement);
 
-        jsonMap.put("event-type", "sync");
-        return formatJson(jsonMap, 0);
+        return finish(jsonMap, "sync");
     }
 
     private Map<String, Object> convertSyncElementToJson(Element syncElement) {
