@@ -167,8 +167,10 @@ The driver uses the standard Identity Manager authentication fields:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `storeXML` | string | `true` | Set to `false` to skip storing the raw XML document (saves disk space) |
+| `storeXML` | string | `true` | Set to `false` to skip storing the raw XML document (saves disk space). Keep `true` for development stores, see below |
 | `tableName` | string | `public.dxmlevent` | Override the target table name |
+
+**Keep `storeXML=true` on development and test stores.** The raw document in `xmlevent` is what the DirXML simulator replays as a test case: it is exactly what reached the driver, apart from masked passwords. A document rebuilt from `eventjson` loses the parts listed in [What the JSON does not keep](#rebuilding-xml-from-the-json), so cases built from it are marked as reconstructed and may not reproduce an issue. Turn it off only on a store kept for audit browsing, where disk space matters more than replay.
 
 ### How it works
 
