@@ -128,6 +128,15 @@ The driver uses the standard Identity Manager authentication fields:
 4. The JSON and (optionally) raw XML are inserted into PostgreSQL via a reusable JDBC connection.
 5. If the database becomes unavailable, the driver applies exponential backoff (1s, 2s, 4s, ... up to 5 minutes) before retrying, and returns `STATUS_RETRY` so the engine queues the event for redelivery.
 
+### Password redaction
+
+Passwords are masked with `***` before anything is converted or stored, so neither `eventjson` nor `xmlevent` ever holds one. Masked values:
+
+- The text of any element whose name contains `password` (case-insensitive): `<password>`, `<old-password>`, the contents of `<modify-password>` and `<check-object-password>`, and password elements inside `<operation-data>`.
+- Every value of an attribute whose name contains `password` (case-insensitive), such as `nspmDistributionPassword`.
+
+Documents logged through PolicyLogger are masked the same way. DSTrace output at level 3 shows the masked document as well.
+
 ### Error handling
 
 | SQL State | Behavior |
