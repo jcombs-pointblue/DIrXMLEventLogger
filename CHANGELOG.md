@@ -6,7 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-10-07
+## [2.0.0] - 2026-10-07
+
+Upgrading from 1.0.0: run `sql/MIGRATE 2 policy columns.sql` on the database before deploying
+the new jar or web UI (see the README, "Upgrading an existing database").
 
 ### Added
 - Maven build (`pom.xml`) producing `dirxml-event-logger-<version>.jar`. It compiles against
@@ -64,5 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default; bad `page` values no longer fail the request and `/recent` is capped at 1000 rows;
   the CSV export filename is sanitized.
 
-[Unreleased]: https://github.com/jcombs-pointblue/DIrXMLEventLogger/compare/v1.0.0...HEAD
+## [1.0.0] - 2026-04-23
+
+First release: the EventLogger driver, PolicyLogger, the Flask web UI and the pg_cron
+cleanup examples.
+
+[Unreleased]: https://github.com/jcombs-pointblue/DIrXMLEventLogger/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/jcombs-pointblue/DIrXMLEventLogger/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/jcombs-pointblue/DIrXMLEventLogger/releases/tag/v1.0.0
