@@ -1,0 +1,10 @@
+<nds dtdversion="4.0" ndsversion="8.x">
+  <input>
+    <move class-name="User" event-id="edir3#20261007142000#1#6" old-src-dn="\TREE\data\users\john.doe" src-dn="\TREE\data\staff\john.doe" src-entry-id="35868" timestamp="1759846800#1">
+      <association state="associated">jdoe</association>
+      <parent src-dn="\TREE\data\staff" src-entry-id="40001">
+        <association>OU=staff,O=company</association>
+      </parent>
+    </move>
+  </input>
+</nds>

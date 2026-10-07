@@ -36,3 +36,7 @@ target/
 
 ### Proprietary engine jars (supplied locally, never committed) ###
 lib/*.jar
+
+### Python ###
+__pycache__/
+*.pyc

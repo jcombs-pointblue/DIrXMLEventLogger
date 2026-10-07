@@ -35,15 +35,11 @@ public class MoveEventConverter extends BaseEventConverter {
         processAssociation(moveElement, jsonMap);
 
         // Process parent element (destination container)
-        NodeList parentNodes = moveElement.getElementsByTagName("parent");
-        if (parentNodes.getLength() > 0) {
-            Element parentElement = (Element) parentNodes.item(0);
+        Element parentElement = firstChild(moveElement, "parent");
+        if (parentElement != null) {
             Map<String, Object> parentMap = new LinkedHashMap<>();
             addAttributes(parentElement, parentMap);
-            String textContent = parentElement.getTextContent();
-            if (textContent != null && !textContent.trim().isEmpty()) {
-                parentMap.put("value", textContent.trim());
-            }
+            processAssociation(parentElement, parentMap);
             jsonMap.put("parent", parentMap);
         }
 

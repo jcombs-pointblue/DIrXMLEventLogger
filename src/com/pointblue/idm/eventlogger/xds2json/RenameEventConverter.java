@@ -50,6 +50,12 @@ public class RenameEventConverter extends BaseEventConverter {
             jsonMap.put("to", toValue != null ? toValue.trim() : "");
         }
 
+        // XDS carries the new RDN in <new-name>
+        Element newName = firstChild(renameElement, "new-name");
+        if (newName != null) {
+            jsonMap.put("new-name", newName.getTextContent().trim());
+        }
+
         processOperationData(renameElement, jsonMap);
 
         return jsonMap;
