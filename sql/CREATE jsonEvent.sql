@@ -21,8 +21,10 @@ CREATE TABLE IF NOT EXISTS dxmlevent (
 -- One driver row per engine event; PolicyLogger may log the same event at many policies
 CREATE UNIQUE INDEX IF NOT EXISTS ux_dxmlevent_driver_eventid ON dxmlevent ("eventid") WHERE "policy" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_eventid ON dxmlevent ("eventid");
--- Subtree queries: reverse(srcdn) LIKE reverse('%...')
-CREATE INDEX IF NOT EXISTS idx_srcdn_reverse ON dxmlevent (REVERSE("srcdn"));
+-- Subtree: srcdn LIKE '\TREE\data\%' ESCAPE ''  (pattern_ops: works under any collation)
+CREATE INDEX IF NOT EXISTS idx_srcdn_prefix ON dxmlevent ("srcdn" text_pattern_ops);
+-- DN ends with: reverse(srcdn) LIKE reverse('%\jdoe') ESCAPE ''
+CREATE INDEX IF NOT EXISTS idx_srcdn_reverse_pattern ON dxmlevent (REVERSE("srcdn") text_pattern_ops);
 -- Timeline and event detail: srcdn = ? ORDER BY cachedtime
 CREATE INDEX IF NOT EXISTS idx_srcdn_cachedtime ON dxmlevent ("srcdn", "cachedtime");
 -- Recent events, dashboard, date filters and purge jobs

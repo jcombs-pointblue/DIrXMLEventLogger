@@ -63,7 +63,10 @@ def index():
 
 @app.route("/api/search-objects")
 def search_objects():
-    """Autocomplete search for object DNs."""
+    """Autocomplete search for object DNs.
+
+    ESCAPE '' because DNs are full of backslashes, LIKE's default escape character.
+    """
     q = request.args.get("q", "").strip()
     if len(q) < 2:
         return jsonify([])
@@ -71,7 +74,7 @@ def search_objects():
     with db_cursor() as cur:
         cur.execute(
             f"""SELECT DISTINCT srcdn FROM {TABLE_NAME}
-                WHERE srcdn ILIKE %s
+                WHERE srcdn ILIKE %s ESCAPE ''
                 ORDER BY srcdn
                 LIMIT 20""",
             (f"%{q}%",),

@@ -50,7 +50,12 @@ CREATE INDEX IF NOT EXISTS idx_eventid ON dxmlevent ("eventid");
 CREATE INDEX IF NOT EXISTS idx_srcdn_cachedtime ON dxmlevent ("srcdn", "cachedtime");
 CREATE INDEX IF NOT EXISTS idx_cachedtime ON dxmlevent ("cachedtime");
 CREATE INDEX IF NOT EXISTS idx_srcdriver_policy ON dxmlevent ("srcdriver", "policy");
+CREATE INDEX IF NOT EXISTS idx_srcdn_prefix ON dxmlevent ("srcdn" text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_srcdn_reverse_pattern ON dxmlevent (REVERSE("srcdn") text_pattern_ops);
 -- Covered by idx_srcdriver_policy
 DROP INDEX IF EXISTS idx_srcdriver;
+-- Replaced by idx_srcdn_reverse_pattern: without text_pattern_ops, LIKE cannot use it
+-- under a non-C collation such as en_US.UTF-8
+DROP INDEX IF EXISTS idx_srcdn_reverse;
 
 COMMIT;

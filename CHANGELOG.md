@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   creates the writer and reader accounts, and schedules the size-based cleanup with pg_cron.
   `fetch-jars` downloads a release's jars for mounting into an engine container.
 - `sql/purge_events_by_size.sql`.
+- `docs/store.md`: the reader contract (columns, JSON shape per event type, query patterns,
+  reader grants).
 - Indexes on `(srcdn, cachedtime)`, `cachedtime`, `eventid` and `(srcdriver, policy)`.
 - `channel`, `policy` and `stage` columns for PolicyLogger rows, and a
   `PolicyLogger.logEvent(..., stage, xml)` overload (stage defaults to `input`).
@@ -47,6 +49,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `JsonToXmlConverter` rewritten: it reads `event-type` instead of guessing, supports move,
   and keeps every event attribute (timestamp, old-src-dn, ...). Round-trip tests cover all
   six event types; the README lists what the JSON does not keep.
+
+- Subtree and DN-suffix `LIKE` queries can use an index under any collation (new
+  `text_pattern_ops` indexes; the old `REVERSE(srcdn)` index could not serve `LIKE` under
+  `en_US.UTF-8`). The README's subtree example was wrong: backslashes in a DN are `LIKE`
+  escapes, so it needs `ESCAPE ''`.
 
 ### Removed
 - `PolicyLogger.writeEventToDB(JSONObject, XmlDocument, boolean)`: it stored pre-built JSON
