@@ -1,4 +1,5 @@
--- Upgrades a dxmlevent table created before release 1.0.0 to the current schema.
+-- Upgrades a dxmlevent table created before release 1.0.0 to schema version 2:
+-- the id primary key, PolicyLogger columns and the schemaversion column.
 -- Safe to run more than once. Run as the table owner:
 --   psql -d idmEvent -f "sql/MIGRATE 2 policy columns.sql"
 -- Adding the id column rewrites the table; on a large table, run it in a quiet period.
@@ -29,6 +30,10 @@ ALTER TABLE dxmlevent ADD COLUMN IF NOT EXISTS "channel" character varying
 ALTER TABLE dxmlevent ADD COLUMN IF NOT EXISTS "policy" character varying;
 ALTER TABLE dxmlevent ADD COLUMN IF NOT EXISTS "stage" character varying
     CHECK ("stage" IN ('input', 'output'));
+
+-- Shape of eventjson. Existing rows, and rows from older driver jars, get 1;
+-- release 1.0.0 and later write 2 (the "schemaVersion" key in the JSON).
+ALTER TABLE dxmlevent ADD COLUMN IF NOT EXISTS "schemaversion" smallint NOT NULL DEFAULT 1;
 
 -- Older PolicyLogger rows carried channel and policy only inside the JSON
 UPDATE dxmlevent

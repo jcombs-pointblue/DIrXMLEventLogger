@@ -25,8 +25,7 @@ public class RenameEventConverter extends BaseEventConverter {
         Element renameElement = (Element) renameNodes.item(0);
         Map<String, Object> jsonMap = convertRenameElementToJson(renameElement);
 
-        jsonMap.put("event-type", "rename");
-        return formatJson(jsonMap, 0);
+        return finish(jsonMap, "rename");
     }
 
     private Map<String, Object> convertRenameElementToJson(Element renameElement) {

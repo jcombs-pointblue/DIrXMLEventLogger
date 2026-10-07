@@ -113,8 +113,8 @@ class EventStoreDbTest {
         runScript("sql/CREATE jsonEvent.sql");
         EventRecords.insert(conn, TABLE, addEvent(), true, LOGGER_DN);
 
-        assertEquals(List.of(List.of(LOGGER_DN, "null", "null", "null")),
-                rows("SELECT srcdriver, coalesce(channel,'null'), coalesce(policy,'null'), coalesce(stage,'null') FROM " + TABLE));
+        assertEquals(List.of(List.of(LOGGER_DN, "null", "null", "null", "2")),
+                rows("SELECT srcdriver, coalesce(channel,'null'), coalesce(policy,'null'), coalesce(stage,'null'), schemaversion FROM " + TABLE));
 
         SQLException dup = assertThrows(SQLException.class,
                 () -> EventRecords.insert(conn, TABLE, addEvent(), true, LOGGER_DN));
@@ -164,14 +164,15 @@ class EventStoreDbTest {
         assertEquals(List.of(List.of("id")), rows(
                 "SELECT a.attname FROM pg_constraint c JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)"
                         + " WHERE c.conrelid = '" + TABLE + "'::regclass AND c.contype = 'p'"));
-        assertEquals(List.of(List.of("1#1", "-", "-", "-"), List.of("1#2", "publisher", "P1", "input")),
-                rows("SELECT eventid, coalesce(channel,'-'), coalesce(policy,'-'), coalesce(stage,'-') FROM " + TABLE + " ORDER BY id"));
+        assertEquals(List.of(List.of("1#1", "-", "-", "-", "1"), List.of("1#2", "publisher", "P1", "input", "1")),
+                rows("SELECT eventid, coalesce(channel,'-'), coalesce(policy,'-'), coalesce(stage,'-'), schemaversion FROM " + TABLE + " ORDER BY id"));
 
         // New rows go in after the upgrade, and the same event can be logged at a policy
         EventRecord record = addEvent();
         EventRecords.insert(conn, TABLE, record, true, LOGGER_DN);
         EventRecords.setPolicySource(record, "sub", "P2", "output");
         EventRecords.insert(conn, TABLE, record, true, "ad");
-        assertEquals(4, rows("SELECT 1 FROM " + TABLE).size());
+        assertEquals(List.of(List.of("1", "2"), List.of("2", "2")),
+                rows("SELECT schemaversion, count(*) FROM " + TABLE + " GROUP BY 1 ORDER BY 1"));
     }
 }

@@ -24,6 +24,12 @@ import java.util.Map;
 public abstract class BaseEventConverter {
 
     /**
+     * Version of the JSON shape these converters produce, written to every document as
+     * {@code "schemaVersion"}. Rows written before it existed have no key (version 1).
+     */
+    public static final int SCHEMA_VERSION = 2;
+
+    /**
      * Converts an XML string to a JSON string.
      *
      * @param xmlString The XML string to convert
@@ -209,6 +215,19 @@ public abstract class BaseEventConverter {
 
             jsonMap.put("attributes", attributesMap);
         }
+    }
+
+    /**
+     * Adds the event type and schema version, then formats the event as JSON.
+     *
+     * @param jsonMap   the converted event
+     * @param eventType the event type name (add, modify, ...)
+     * @return the JSON string
+     */
+    protected String finish(Map<String, Object> jsonMap, String eventType) {
+        jsonMap.put("event-type", eventType);
+        jsonMap.put("schemaVersion", SCHEMA_VERSION);
+        return formatJson(jsonMap, 0);
     }
 
     /**

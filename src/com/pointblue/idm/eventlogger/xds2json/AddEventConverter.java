@@ -25,8 +25,7 @@ public class AddEventConverter extends BaseEventConverter {
         Element addElement = (Element) addNodes.item(0);
         Map<String, Object> jsonMap = convertAddElementToJson(addElement);
 
-        jsonMap.put("event-type", "add");
-        return formatJson(jsonMap, 0);
+        return finish(jsonMap, "add");
     }
 
     private Map<String, Object> convertAddElementToJson(Element addElement) {

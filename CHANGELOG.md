@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PolicyLogger.logEvent(..., stage, xml)` overload (stage defaults to `input`).
   Migration: `sql/MIGRATE 2 policy columns.sql`.
 - Web UI shows the policy, channel and stage of PolicyLogger rows.
+- `"schemaVersion": 2` in every converted JSON document, and a `schemaversion` column
+  (1 for rows written before this release or by older driver jars, 2 for new rows).
 
 ### Changed
 - The table's primary key is a new `id` column. `eventid` stays unique among the driver's own

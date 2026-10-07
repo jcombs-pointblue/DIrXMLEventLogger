@@ -25,8 +25,7 @@ public class DeleteEventConverter extends BaseEventConverter {
         Element deleteElement = (Element) deleteNodes.item(0);
         Map<String, Object> jsonMap = convertDeleteElementToJson(deleteElement);
 
-        jsonMap.put("event-type", "delete");
-        return formatJson(jsonMap, 0);
+        return finish(jsonMap, "delete");
     }
 
     private Map<String, Object> convertDeleteElementToJson(Element deleteElement) {
