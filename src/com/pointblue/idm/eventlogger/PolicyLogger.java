@@ -146,6 +146,26 @@ public class PolicyLogger {
      * @return {@code true} if the event was logged successfully, {@code false} on error
      */
     public static boolean logEvent(String eventLoggerDN, String srcDriverDN, String channel, String policyDN, String xmlString) {
+        return logEvent(eventLoggerDN, srcDriverDN, channel, policyDN, "input", xmlString);
+    }
+
+    /**
+     * Logs an XDS XML event, recording whether the document is the policy's input or output.
+     * <p>
+     * Stores {@code channel}, {@code policy} and {@code stage} in their own columns.
+     * <pre>
+     *   PolicyLogger.logEvent(eventLoggerDN, thisDriverDN, "sub", "AD-Sub-ETP", "output", XPATH.get("/"));
+     * </pre>
+     *
+     * @param eventLoggerDN the DN of the EventLoggerDriver to log through
+     * @param srcDriverDN   the DN of the driver whose policy is calling this method (stored in {@code srcdriver})
+     * @param channel       "subscriber" or "publisher" ("sub" and "pub" are accepted)
+     * @param policyDN      the name or DN of the calling policy, stored as given in {@code policy}
+     * @param stage         "input" or "output" (null or empty means "input")
+     * @param xmlString     the XDS XML document as a string
+     * @return {@code true} if the event was logged successfully, {@code false} on error
+     */
+    public static boolean logEvent(String eventLoggerDN, String srcDriverDN, String channel, String policyDN, String stage, String xmlString) {
         Trace trace = new Trace("PolicyLogger");
 
         PolicyLogger logger = registry.get(eventLoggerDN);
@@ -156,8 +176,9 @@ public class PolicyLogger {
 
         try {
             EventRecord record = EventRecords.prepare(xmlString);
+            EventRecords.setPolicySource(record, channel, policyDN, stage);
 
-            // Add policy metadata
+            // Also in the JSON, for readers of rows written before the columns existed
             record.json.put("logged-by-policy", policyDN);
             record.json.put("logged-channel", channel);
 

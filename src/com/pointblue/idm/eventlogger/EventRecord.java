@@ -13,6 +13,15 @@ public final class EventRecord {
     /** The XDS document with passwords masked. */
     public final String xml;
 
+    /** For PolicyLogger rows: "subscriber" or "publisher"; null for driver rows. */
+    String channel;
+
+    /** For PolicyLogger rows: the policy name or DN as given; null for driver rows. */
+    String policy;
+
+    /** For PolicyLogger rows: "input" or "output"; null for driver rows. */
+    String stage;
+
     EventRecord(JSONObject json, String xml) {
         this.json = json;
         this.xml = xml;
