@@ -43,6 +43,43 @@ public final class EventRecords {
     }
 
     /** Returns the first supported event type found in the document, or null. */
+    /**
+     * Marks a record as logged by a policy, normalizing channel and stage.
+     *
+     * @param record  the record to mark
+     * @param channel "subscriber" or "publisher" ("sub" and "pub" are accepted)
+     * @param policy  the policy name or DN, stored as given
+     * @param stage   "input" or "output"; null or empty means "input"
+     * @throws IllegalArgumentException if channel or stage is not one of the accepted values
+     */
+    public static void setPolicySource(EventRecord record, String channel, String policy, String stage) {
+        record.channel = normalizeChannel(channel);
+        record.policy = policy;
+        record.stage = normalizeStage(stage);
+    }
+
+    static String normalizeChannel(String channel) {
+        String c = channel == null ? "" : channel.trim().toLowerCase(java.util.Locale.ROOT);
+        if (c.equals("sub") || c.equals("subscriber")) {
+            return "subscriber";
+        }
+        if (c.equals("pub") || c.equals("publisher")) {
+            return "publisher";
+        }
+        throw new IllegalArgumentException("channel must be subscriber or publisher, was: " + channel);
+    }
+
+    static String normalizeStage(String stage) {
+        String s = stage == null ? "" : stage.trim().toLowerCase(java.util.Locale.ROOT);
+        if (s.isEmpty() || s.equals("input")) {
+            return "input";
+        }
+        if (s.equals("output")) {
+            return "output";
+        }
+        throw new IllegalArgumentException("stage must be input or output, was: " + stage);
+    }
+
     static String detectType(Document doc) {
         for (String type : EVENT_TYPES) {
             if (doc.getElementsByTagName(type).getLength() > 0) {
@@ -76,7 +113,7 @@ public final class EventRecords {
      */
     public static void insert(Connection conn, String tableName, EventRecord record,
                               boolean storeXML, String srcDriver) throws SQLException {
-        String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\") VALUES(?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\", \"channel\", \"policy\", \"stage\") VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
         JSONObject json = record.json;
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             long epochSeconds = Long.parseLong(json.getString("timestamp").split("#")[0]);
@@ -94,6 +131,9 @@ public final class EventRecords {
             pstmt.setTimestamp(7, Timestamp.from(Instant.ofEpochSecond(epochSeconds)));
             setNullable(pstmt, 8, storeXML ? record.xml : null);
             setNullable(pstmt, 9, srcDriver);
+            setNullable(pstmt, 10, record.channel);
+            setNullable(pstmt, 11, record.policy);
+            setNullable(pstmt, 12, record.stage);
             pstmt.executeUpdate();
         }
     }

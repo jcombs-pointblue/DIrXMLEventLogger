@@ -137,11 +137,11 @@ def timeline():
         # Fetch page
         offset = (page - 1) * per_page
         cur.execute(
-            f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
-                       eventjson, cachedtime, xmlevent, srcdriver
+            f"""SELECT id, eventid, classname, srcdn, srcentryid, eventtype,
+                       eventjson, cachedtime, xmlevent, srcdriver, channel, policy, stage
                 FROM {TABLE_NAME}
                 WHERE {where}
-                ORDER BY cachedtime ASC, eventid ASC
+                ORDER BY cachedtime ASC, id ASC
                 LIMIT %s OFFSET %s""",
             params + [per_page, offset],
         )
@@ -168,18 +168,27 @@ def timeline():
 
 @app.route("/event")
 def event_detail():
-    """Show full detail for a single event."""
-    event_id = request.args.get("id", "").strip()
-    if not event_id:
-        return "Event ID required", 400
+    """Show full detail for a single event row.
 
+    ``row`` is the row id. ``id`` (an engine event ID) is still accepted for old
+    links; when several rows share it, the driver's own row is shown first.
+    """
+    row_id = int_arg("row", 0, minimum=0)
+    event_id = request.args.get("id", "").strip()
+    if not row_id and not event_id:
+        return "Event row or ID required", 400
+
+    columns = """id, eventid, classname, srcdn, srcentryid, eventtype, eventjson,
+                 cachedtime, xmlevent, srcdriver, channel, policy, stage"""
     with db_cursor() as cur:
-        cur.execute(
-            f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
-                       eventjson, cachedtime, xmlevent, srcdriver
-                FROM {TABLE_NAME} WHERE eventid = %s""",
-            (event_id,),
-        )
+        if row_id:
+            cur.execute(f"SELECT {columns} FROM {TABLE_NAME} WHERE id = %s", (row_id,))
+        else:
+            cur.execute(
+                f"""SELECT {columns} FROM {TABLE_NAME} WHERE eventid = %s
+                    ORDER BY policy NULLS FIRST, id LIMIT 1""",
+                (event_id,),
+            )
         event = cur.fetchone()
 
     if not event:
@@ -199,18 +208,18 @@ def event_detail():
     # Get previous and next events for this object
     with db_cursor() as cur:
         cur.execute(
-            f"""SELECT eventid, eventtype, cachedtime FROM {TABLE_NAME}
-                WHERE srcdn = %s AND cachedtime <= %s AND eventid != %s
-                ORDER BY cachedtime DESC, eventid DESC LIMIT 1""",
-            (event["srcdn"], event["cachedtime"], event_id),
+            f"""SELECT id, eventtype, cachedtime FROM {TABLE_NAME}
+                WHERE srcdn = %s AND (cachedtime, id) < (%s, %s)
+                ORDER BY cachedtime DESC, id DESC LIMIT 1""",
+            (event["srcdn"], event["cachedtime"], event["id"]),
         )
         prev_event = cur.fetchone()
 
         cur.execute(
-            f"""SELECT eventid, eventtype, cachedtime FROM {TABLE_NAME}
-                WHERE srcdn = %s AND cachedtime >= %s AND eventid != %s
-                ORDER BY cachedtime ASC, eventid ASC LIMIT 1""",
-            (event["srcdn"], event["cachedtime"], event_id),
+            f"""SELECT id, eventtype, cachedtime FROM {TABLE_NAME}
+                WHERE srcdn = %s AND (cachedtime, id) > (%s, %s)
+                ORDER BY cachedtime ASC, id ASC LIMIT 1""",
+            (event["srcdn"], event["cachedtime"], event["id"]),
         )
         next_event = cur.fetchone()
 
@@ -255,11 +264,11 @@ def search():
 
         offset = (page - 1) * per_page
         cur.execute(
-            f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
-                       eventjson, cachedtime, srcdriver
+            f"""SELECT id, eventid, classname, srcdn, srcentryid, eventtype,
+                       eventjson, cachedtime, srcdriver, channel, policy, stage
                 FROM {TABLE_NAME}
                 WHERE {where}
-                ORDER BY cachedtime DESC
+                ORDER BY cachedtime DESC, id DESC
                 LIMIT %s OFFSET %s""",
             params + [per_page, offset],
         )
@@ -290,10 +299,11 @@ def export_timeline():
     with db_cursor() as cur:
         cur.execute(
             f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
-                       eventjson::text as eventjson, cachedtime, xmlevent, srcdriver
+                       eventjson::text as eventjson, cachedtime, xmlevent, srcdriver,
+                       channel, policy, stage
                 FROM {TABLE_NAME}
                 WHERE srcdn = %s
-                ORDER BY cachedtime ASC""",
+                ORDER BY cachedtime ASC, id ASC""",
             (srcdn,),
         )
         events = cur.fetchall()
@@ -303,7 +313,8 @@ def export_timeline():
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=["eventid", "cachedtime", "eventtype",
                                                  "classname", "srcdn", "srcentryid",
-                                                 "srcdriver", "eventjson", "xmlevent"])
+                                                 "srcdriver", "channel", "policy", "stage",
+                                                 "eventjson", "xmlevent"])
     writer.writeheader()
     for e in events:
         writer.writerow(e)
@@ -342,11 +353,11 @@ def recent():
         src_drivers = [r["srcdriver"] for r in cur.fetchall()]
 
         cur.execute(
-            f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
-                       eventjson, cachedtime, srcdriver
+            f"""SELECT id, eventid, classname, srcdn, srcentryid, eventtype,
+                       eventjson, cachedtime, srcdriver, channel, policy, stage
                 FROM {TABLE_NAME}
                 {where}
-                ORDER BY cachedtime DESC, eventid DESC
+                ORDER BY cachedtime DESC, id DESC
                 LIMIT %s""",
             params + [limit],
         )

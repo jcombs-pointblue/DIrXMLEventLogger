@@ -11,6 +11,7 @@ CREATE ROLE :"writer_user" LOGIN PASSWORD :'writer_pw';
 GRANT CONNECT ON DATABASE :"db" TO :"writer_user";
 GRANT USAGE ON SCHEMA public TO :"writer_user";
 GRANT SELECT, INSERT ON dxmlevent TO :"writer_user";
+GRANT USAGE ON SEQUENCE dxmlevent_id_seq TO :"writer_user";
 
 CREATE ROLE :"reader_user" LOGIN PASSWORD :'reader_pw';
 GRANT CONNECT ON DATABASE :"db" TO :"reader_user";

@@ -18,9 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `xmlevent` before storage.
 - Container deployment: the web UI image (amd64/arm64, published to GHCR) and a compose file
   with an optional bundled PostgreSQL.
-- Indexes on `(srcdn, cachedtime)` and `cachedtime`.
+- Indexes on `(srcdn, cachedtime)`, `cachedtime`, `eventid` and `(srcdriver, policy)`.
+- `channel`, `policy` and `stage` columns for PolicyLogger rows, and a
+  `PolicyLogger.logEvent(..., stage, xml)` overload (stage defaults to `input`).
+  Migration: `sql/MIGRATE 2 policy columns.sql`.
+- Web UI shows the policy, channel and stage of PolicyLogger rows.
 
 ### Changed
+- The table's primary key is a new `id` column. `eventid` stays unique among the driver's own
+  rows, but PolicyLogger can now log the same event at several policies and stages (before,
+  those inserts failed as duplicates).
+- Web UI event links use the row id (`/event?row=`); `/event?id=<eventid>` still works.
 - Unparseable subscriber documents return an error instead of a retry, so they no longer
   block the queue.
 - The driver no longer uses `XDSCommandDocument`, `com.novell.xsl.util.Util` or

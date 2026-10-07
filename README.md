@@ -65,7 +65,8 @@ This creates:
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `eventid` | `varchar` PK | DirXML event ID (e.g. `1714143050#2`) |
+| `id` | `bigserial` PK | Row ID |
+| `eventid` | `varchar` | DirXML event ID (e.g. `1714143050#2`). Unique among the driver's own rows; PolicyLogger can log the same event once per policy and stage |
 | `classname` | `varchar` | Object class (e.g. `User`, `Group`) |
 | `srcdn` | `varchar` | Source DN of the affected object |
 | `srcentryid` | `varchar` | Source entry GUID |
@@ -74,8 +75,27 @@ This creates:
 | `xmlevent` | `text` | Original XDS XML document (optional, controlled by `storeXML`) |
 | `cachedtime` | `timestamptz` | Event timestamp |
 | `srcdriver` | `varchar` | DN of the source driver that logged the event |
+| `channel` | `varchar` | PolicyLogger rows: `subscriber` or `publisher`. NULL for the driver's own rows |
+| `policy` | `varchar` | PolicyLogger rows: the policy name or DN as passed to `logEvent`. NULL for the driver's own rows |
+| `stage` | `varchar` | PolicyLogger rows: `input` or `output`. NULL for the driver's own rows |
 
-Indexes are created on `REVERSE(srcdn)` (subtree queries), `(srcdn, cachedtime)` (object timelines), `cachedtime` (recent events, dashboard, date filters and purge jobs) and `srcdriver` (filtering by source driver). The script is safe to re-run on an existing database: it only creates what is missing.
+Indexes are created on `REVERSE(srcdn)` (subtree queries), `(srcdn, cachedtime)` (object timelines), `cachedtime` (recent events, dashboard, date filters and purge jobs), `eventid`, and `(srcdriver, policy)` (filtering by driver and policy). The script is safe to re-run on an existing database: it only creates what is missing.
+
+### Upgrading an existing database
+
+Tables created before release 1.0.0 need the migration script. It adds the `id` primary key and the PolicyLogger columns, fills those columns for existing PolicyLogger rows from their JSON, and adds the new indexes. It is safe to run more than once:
+
+```bash
+psql -h localhost -U postgres -d idmEvent -f "sql/MIGRATE 2 policy columns.sql"
+```
+
+Adding the `id` column rewrites the table, so run it on a large table during a quiet period. Upgrade the database before deploying the new driver jar or web UI, since both use the new columns.
+
+If the driver connects with an account that does not own the table, that account also needs the new sequence:
+
+```sql
+GRANT USAGE ON SEQUENCE dxmlevent_id_seq TO <driver_account>;
+```
 
 ### 3. Create a read-only user for the web UI
 
@@ -263,7 +283,7 @@ Then open http://localhost:5000.
 |------|-----|-------------|
 | **Home** | `/` | DN autocomplete search to find objects |
 | **Timeline** | `/timeline?srcdn=...` | Chronological event history for an object, filterable by event type, class name, and date range |
-| **Event Detail** | `/event?id=...` | Full JSON and XML view for a single event, with modify diff table showing old/new values and prev/next navigation |
+| **Event Detail** | `/event?row=...` | Full JSON and XML view for a single event, with modify diff table showing old/new values and prev/next navigation |
 | **Recent** | `/recent` | Most recent events across all objects (default 100), filterable by type and driver |
 | **Search** | `/search` | Full-text search across all event JSON payloads with filters |
 | **Dashboard** | `/stats` | Event counts by type and class, most active objects, 30-day activity chart |
@@ -311,6 +331,9 @@ var xmlString = XPATH.get("/");
 
 // Log the event — returns true on success, false on error
 PolicyLogger.logEvent(eventLoggerDN, thisDriverDN, "sub", "AD-Sub-ETP", xmlString);
+
+// Or say whether this is the document going into the policy or coming out of it
+PolicyLogger.logEvent(eventLoggerDN, thisDriverDN, "sub", "AD-Sub-ETP", "output", xmlString);
 ```
 
 Place the policy on whichever channel and at whichever policy point you want to capture. For example, placing it on the subscriber Event Transformation Policy of your AD driver would log every event the AD driver processes on its subscriber channel.
@@ -321,18 +344,18 @@ Place the policy on whichever channel and at whichever policy point you want to 
 |-----------|-------------|
 | `eventLoggerDN` | Full DN of the EventLoggerDriver instance to log through |
 | `thisDriverDN` | Full DN of the driver whose policy is calling this method (stored in the `srcdriver` column) |
-| `channel` | Channel context, e.g. `"sub"` or `"pub"` |
-| `policyDN` | Name of the calling policy (for traceability in the logged JSON) |
+| `channel` | `"subscriber"` or `"publisher"` (`"sub"` and `"pub"` are accepted). Stored in the `channel` column |
+| `policyDN` | Name or DN of the calling policy. Stored as given in the `policy` column |
+| `stage` | Optional: `"input"` or `"output"`, whether the document is the policy's input or its result. Defaults to `"input"`. Stored in the `stage` column |
 | `xmlString` | The current XDS document as a string (use `XPATH.get("/")`) |
 
 The method returns `boolean` — `true` if the event was logged, `false` if the EventLoggerDriver is not running or an error occurred. Errors are traced but never thrown, so the calling driver's policy execution is not interrupted.
 
 ### What gets stored
 
-Events logged through PolicyLogger are written to the same table as the Event Logger driver's own events. Two additional fields are added to the JSON for traceability:
+Events logged through PolicyLogger are written to the same table as the Event Logger driver's own events, with the `channel`, `policy` and `stage` columns filled in. Rows written by the Event Logger driver itself leave those three columns NULL. The same engine event can be logged at several policies and stages; each call adds a row.
 
-- `logged-by-policy` — the policy name passed to `logEvent()`
-- `logged-channel` — the channel (`"sub"` or `"pub"`)
+For older readers, the JSON also carries `logged-by-policy` (the policy name) and `logged-channel` (the channel as passed).
 
 The `srcdriver` column is set to the calling driver's DN (the `thisDriverDN` parameter). This lets you distinguish which driver an event came from and filter by source driver in the web UI. Events captured directly by the EventLoggerDriver on its own subscriber channel will have `srcdriver` set to the EventLoggerDriver's own DN.
 
@@ -464,8 +487,8 @@ DECLARE
 BEGIN
     LOOP
         DELETE FROM dxmlevent
-        WHERE eventid IN (
-            SELECT eventid FROM dxmlevent
+        WHERE id IN (
+            SELECT id FROM dxmlevent
             WHERE cachedtime < now() - retention_interval
             LIMIT batch_size
         );
@@ -512,8 +535,8 @@ BEGIN
 
     LOOP
         DELETE FROM dxmlevent
-        WHERE eventid IN (
-            SELECT eventid FROM dxmlevent
+        WHERE id IN (
+            SELECT id FROM dxmlevent
             ORDER BY cachedtime ASC
             LIMIT batch_size
         );
