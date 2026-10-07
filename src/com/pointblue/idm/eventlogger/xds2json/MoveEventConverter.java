@@ -25,8 +25,7 @@ public class MoveEventConverter extends BaseEventConverter {
         Element moveElement = (Element) moveNodes.item(0);
         Map<String, Object> jsonMap = convertMoveElementToJson(moveElement);
 
-        jsonMap.put("event-type", "move");
-        return formatJson(jsonMap, 0);
+        return finish(jsonMap, "move");
     }
 
     private Map<String, Object> convertMoveElementToJson(Element moveElement) {

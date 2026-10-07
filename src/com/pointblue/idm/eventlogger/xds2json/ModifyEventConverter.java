@@ -27,8 +27,7 @@ public class ModifyEventConverter extends BaseEventConverter {
         Element modifyElement = (Element) modifyNodes.item(0);
         Map<String, Object> jsonMap = convertModifyElementToJson(modifyElement);
 
-        jsonMap.put("event-type", "modify");
-        return formatJson(jsonMap, 0);
+        return finish(jsonMap, "modify");
     }
 
     private Map<String, Object> convertModifyElementToJson(Element modifyElement) {

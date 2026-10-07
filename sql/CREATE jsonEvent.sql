@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS dxmlevent (
 	-- PolicyLogger rows only; NULL for rows written by the EventLogger driver itself
 	"channel" character varying CHECK ("channel" IN ('subscriber', 'publisher')),
 	"policy" character varying,
-	"stage" character varying CHECK ("stage" IN ('input', 'output'))
+	"stage" character varying CHECK ("stage" IN ('input', 'output')),
+	-- Shape of eventjson: 1 = written before schemaVersion existed, 2 = current (see docs/store.md)
+	"schemaversion" smallint NOT NULL DEFAULT 1
 );
 -- One driver row per engine event; PolicyLogger may log the same event at many policies
 CREATE UNIQUE INDEX IF NOT EXISTS ux_dxmlevent_driver_eventid ON dxmlevent ("eventid") WHERE "policy" IS NULL;

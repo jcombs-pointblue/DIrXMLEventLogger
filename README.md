@@ -78,12 +78,13 @@ This creates:
 | `channel` | `varchar` | PolicyLogger rows: `subscriber` or `publisher`. NULL for the driver's own rows |
 | `policy` | `varchar` | PolicyLogger rows: the policy name or DN as passed to `logEvent`. NULL for the driver's own rows |
 | `stage` | `varchar` | PolicyLogger rows: `input` or `output`. NULL for the driver's own rows |
+| `schemaversion` | `smallint` | Shape of `eventjson`: `1` for rows written before release 1.0.0 (or by older driver jars), `2` for current rows. The JSON also carries `"schemaVersion": 2` |
 
 Indexes are created on `REVERSE(srcdn)` (subtree queries), `(srcdn, cachedtime)` (object timelines), `cachedtime` (recent events, dashboard, date filters and purge jobs), `eventid`, and `(srcdriver, policy)` (filtering by driver and policy). The script is safe to re-run on an existing database: it only creates what is missing.
 
 ### Upgrading an existing database
 
-Tables created before release 1.0.0 need the migration script. It adds the `id` primary key and the PolicyLogger columns, fills those columns for existing PolicyLogger rows from their JSON, and adds the new indexes. It is safe to run more than once:
+Tables created before release 1.0.0 need the migration script. It adds the `id` primary key, the PolicyLogger columns and the `schemaversion` column, fills those columns for existing PolicyLogger rows from their JSON, and adds the new indexes. It is safe to run more than once:
 
 ```bash
 psql -h localhost -U postgres -d idmEvent -f "sql/MIGRATE 2 policy columns.sql"

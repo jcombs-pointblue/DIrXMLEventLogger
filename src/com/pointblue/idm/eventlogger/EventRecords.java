@@ -113,7 +113,7 @@ public final class EventRecords {
      */
     public static void insert(Connection conn, String tableName, EventRecord record,
                               boolean storeXML, String srcDriver) throws SQLException {
-        String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\", \"channel\", \"policy\", \"stage\") VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\", \"channel\", \"policy\", \"stage\", \"schemaversion\") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)";
         JSONObject json = record.json;
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             long epochSeconds = Long.parseLong(json.getString("timestamp").split("#")[0]);
@@ -134,6 +134,7 @@ public final class EventRecords {
             setNullable(pstmt, 10, record.channel);
             setNullable(pstmt, 11, record.policy);
             setNullable(pstmt, 12, record.stage);
+            pstmt.setShort(13, (short) json.optInt("schemaVersion", 1));
             pstmt.executeUpdate();
         }
     }
