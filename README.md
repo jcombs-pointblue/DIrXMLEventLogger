@@ -32,7 +32,10 @@ src/com/pointblue/idm/eventlogger/
 web/
   app.py                      Flask web application
   requirements.txt            Python dependencies
+  Dockerfile                  Web UI container image
   templates/                  Jinja2 templates
+docker-compose.yml            Web UI + optional PostgreSQL (--profile db)
+docker/postgres-init/         First-start account setup for the bundled database
 sql/
   CREATE jsonEvent.sql        Table and index DDL
   *.sql                       Example queries
@@ -69,7 +72,7 @@ This creates:
 | `cachedtime` | `timestamptz` | Event timestamp |
 | `srcdriver` | `varchar` | DN of the source driver that logged the event |
 
-An index on `REVERSE(srcdn)` is created to support efficient subtree queries using reverse pattern matching. An index on `srcdriver` supports filtering events by source driver.
+Indexes are created on `REVERSE(srcdn)` (subtree queries), `(srcdn, cachedtime)` (object timelines), `cachedtime` (recent events, dashboard, date filters and purge jobs) and `srcdriver` (filtering by source driver). The script is safe to re-run on an existing database: it only creates what is missing.
 
 ### 3. Create a read-only user for the web UI
 
@@ -130,6 +133,7 @@ The driver uses the standard Identity Manager authentication fields:
 | SQL State | Behavior |
 |-----------|----------|
 | `23505` (duplicate key) | Returns error, event is skipped (already logged) |
+| *(XML parse error)* | Returns error, event is skipped (a malformed document will never succeed) |
 | `42P01`, `42703` (undefined table/column) | Returns fatal, requires admin fix |
 | `28000` (invalid credentials) | Returns fatal |
 | `08xxx` (connection errors) | Resets connection, applies backoff, retries |
@@ -141,36 +145,42 @@ The web UI is a Flask application for browsing and searching the event database.
 
 ### Running with Docker (recommended)
 
-The easiest way to run the web UI, especially for non-developers, is with Docker.
+The repository includes a compose file that runs the web UI and, optionally, a ready-to-use PostgreSQL database. It works on Windows, macOS (Intel and Apple Silicon) and Linux with [Docker Desktop](https://www.docker.com/products/docker-desktop/), Docker Engine or Podman (`podman compose`).
 
-1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-2. Copy the example environment file and fill in your database credentials:
+1. From the repository root, copy the example environment file and change the passwords:
 
 ```bash
-cd web
 cp .env.example .env
 ```
 
-3. Edit `.env` with your database connection details:
+2. Start the stack.
 
-```
-DB_HOST=10.0.0.5
-DB_PORT=5432
-DB_NAME=idmEvent
-DB_USER=eventlogger_reader
-DB_PASSWORD=your_reader_password
-TABLE_NAME=public.dxmlevent
-```
+   **With the bundled database** (good for driver development and testing). Leave `DB_HOST=postgres` in `.env`:
 
-4. Start the application:
+   ```bash
+   docker compose --profile db up -d
+   ```
 
-```bash
-docker compose up
-```
+   On first start the database is created with the event table, its indexes and two accounts:
 
-5. Open http://localhost:5000.
+   | Account | Access | Used by |
+   |---------|--------|---------|
+   | `eventlogger_writer` (`WRITER_USER`) | SELECT, INSERT | The Event Logger driver |
+   | `eventlogger_reader` (`DB_USER`) | SELECT only | The web UI |
 
-To stop: `docker compose down`. To rebuild after updates: `docker compose build && docker compose up`.
+   Point the driver at it: **Authentication ID** `eventlogger_writer`, **Authentication Context** `<docker-host>:5432/idmEvent`, **Application Password** the `WRITER_PASSWORD` value. Data is kept in the `pgdata` volume. The accounts are only created on first start, so to change their passwords later, use `ALTER ROLE` or delete the volume (`docker compose --profile db down -v`, which deletes all events).
+
+   **With an existing database.** Set `DB_HOST` in `.env` to your PostgreSQL server and create the read-only user as shown in [Database Setup](#3-create-a-read-only-user-for-the-web-ui), then:
+
+   ```bash
+   docker compose up -d
+   ```
+
+3. Open http://localhost:5000 (change the port with `WEB_PORT`).
+
+The web image is published to GitHub Container Registry for `linux/amd64` and `linux/arm64`. `docker compose pull` fetches the latest published image; `docker compose up -d --build` builds it from source instead. To stop: `docker compose --profile db down`.
+
+The container runs the app under gunicorn as a non-root user and exposes `/health` for health checks.
 
 ### Running with Python
 
@@ -191,6 +201,8 @@ DB_USER=eventlogger_reader \
 DB_PASSWORD=your_reader_password \
 python3 app.py
 ```
+
+`python3 app.py` starts Flask's development server on 127.0.0.1 only. Set `FLASK_DEBUG=1` to enable the debugger, and never do that on a reachable host since it allows running code on the server. For a shared deployment, use the container or run `gunicorn --bind 0.0.0.0:5000 app:app`.
 
 Then open http://localhost:5000.
 
