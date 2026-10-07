@@ -1,0 +1,27 @@
+<nds dtdversion="4.0" ndsversion="8.x">
+  <input>
+    <add class-name="User" event-id="edir3#20261007141502#1#1" qualified-src-dn="O=data\OU=users\CN=jdoe" src-dn="\TREE\data\users\jdoe" src-entry-id="35868" timestamp="1759846502#3">
+      <association state="pending">jdoe</association>
+      <add-attr attr-name="Surname">
+        <value timestamp="1759846502#1" type="string">Doe</value>
+      </add-attr>
+      <add-attr attr-name="Telephone Number">
+        <value type="teleNumber">555-0100</value>
+        <value type="teleNumber">555-0101</value>
+      </add-attr>
+      <add-attr attr-name="Facsimile Telephone Number">
+        <value type="structured">
+          <component name="faxNumber">555-0199</component>
+          <component name="faxBitCount">0</component>
+        </value>
+      </add-attr>
+      <add-attr attr-name="Description">
+        <value>plain value</value>
+      </add-attr>
+      <password>***</password>
+      <operation-data>
+        <correlation-id>abc-123</correlation-id>
+      </operation-data>
+    </add>
+  </input>
+</nds>

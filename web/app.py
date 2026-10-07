@@ -442,7 +442,10 @@ def extract_values(value_list):
     """Pull display values from converter output structure."""
     results = []
     for v in value_list:
-        if isinstance(v, dict):
+        if isinstance(v, dict) and isinstance(v.get("components"), dict):
+            # structured value: {"type": ..., "components": {name: text}}
+            results.append("; ".join(f"{k}={c}" for k, c in v["components"].items()))
+        elif isinstance(v, dict):
             # add-value/remove-value wraps a value element
             val = v.get("value", "")
             if not val:

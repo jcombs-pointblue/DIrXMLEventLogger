@@ -86,35 +86,40 @@ public abstract class BaseEventConverter {
      * @param jsonMap The map to add the association to
      */
     protected void processAssociation(Element parentElement, Map<String, Object> jsonMap) {
-        NodeList associationNodes = parentElement.getElementsByTagName("association");
-        if (associationNodes.getLength() > 0) {
-            Element associationElement = (Element) associationNodes.item(0);
-            Map<String, Object> associationMap = new LinkedHashMap<>();
-
-            addAttributes(associationElement, associationMap);
-
-            String textContent = associationElement.getTextContent();
-            if (textContent != null) {
-                textContent = textContent.trim();
-                if (!textContent.isEmpty()) {
-                    associationMap.put("value", textContent);
-                }
-            }
-
-            jsonMap.put("association", associationMap);
+        Element associationElement = firstChild(parentElement, "association");
+        if (associationElement != null) {
+            jsonMap.put("association", associationToJson(associationElement));
         }
     }
 
+    /** Converts an {@code <association>} element to its attributes plus {@code value} text. */
+    protected Map<String, Object> associationToJson(Element associationElement) {
+        Map<String, Object> associationMap = new LinkedHashMap<>();
+        addAttributes(associationElement, associationMap);
+        String textContent = associationElement.getTextContent().trim();
+        if (!textContent.isEmpty()) {
+            associationMap.put("value", textContent);
+        }
+        return associationMap;
+    }
+
     /**
-     * Processes operation-data element and adds it to the JSON map.
-     *
-     * @param parentElement The parent element containing the operation-data
-     * @param jsonMap The map to add the operation data to
+     * Returns the first direct child element with the given name, or null. Unlike
+     * {@code getElementsByTagName}, this does not find elements nested deeper, such as
+     * the association inside a move's {@code <parent>}.
      */
+    protected static Element firstChild(Element parent, String name) {
+        for (Node child = parent.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getNodeType() == Node.ELEMENT_NODE && child.getNodeName().equals(name)) {
+                return (Element) child;
+            }
+        }
+        return null;
+    }
+
     protected void processOperationData(Element parentElement, Map<String, Object> jsonMap) {
-        NodeList operationDataNodes = parentElement.getElementsByTagName("operation-data");
-        if (operationDataNodes.getLength() > 0) {
-            Element operationDataElement = (Element) operationDataNodes.item(0);
+        Element operationDataElement = firstChild(parentElement, "operation-data");
+        if (operationDataElement != null) {
             Map<String, Object> operationDataMap = new LinkedHashMap<>();
 
             NodeList childNodes = operationDataElement.getChildNodes();
@@ -138,9 +143,8 @@ public abstract class BaseEventConverter {
      * @param jsonMap The map to add the password to
      */
     protected void processPassword(Element parentElement, Map<String, Object> jsonMap) {
-        NodeList passwordNodes = parentElement.getElementsByTagName("password");
-        if (passwordNodes.getLength() > 0) {
-            Element passwordElement = (Element) passwordNodes.item(0);
+        Element passwordElement = firstChild(parentElement, "password");
+        if (passwordElement != null) {
             String password = passwordElement.getTextContent();
             jsonMap.put("password", password != null ? password.trim() : "");
         }

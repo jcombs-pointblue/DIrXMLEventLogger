@@ -37,6 +37,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `com.novell.xml.dom.DocumentFactory`; only the core driver API is needed at runtime.
 - The PostgreSQL JDBC jar is a Maven dependency instead of a file committed in `lib/`.
 
+- Converters (JSON schemaVersion 2): modify values keep their `type`, `timestamp` and
+  structured components, one entry per `<value>` (before, all values of an `<add-value>` were
+  run together as text). Rename keeps `<new-name>`. A move's parent keeps its association as
+  an object, and the event's own association is no longer taken from inside `<parent>`.
+- `JsonToXmlConverter` rewritten: it reads `event-type` instead of guessing, supports move,
+  and keeps every event attribute (timestamp, old-src-dn, ...). Round-trip tests cover all
+  six event types; the README lists what the JSON does not keep.
+
 ### Removed
 - `PolicyLogger.writeEventToDB(JSONObject, XmlDocument, boolean)`: it stored pre-built JSON
   that could not be redacted. Use `PolicyLogger.logEvent`.

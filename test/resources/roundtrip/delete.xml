@@ -1,0 +1,7 @@
+<nds dtdversion="4.0" ndsversion="8.x">
+  <input>
+    <delete class-name="User" event-id="edir3#20261007141700#1#3" src-dn="\TREE\data\users\jdoe" src-entry-id="35868" timestamp="1759846620#1">
+      <association state="associated">jdoe</association>
+    </delete>
+  </input>
+</nds>

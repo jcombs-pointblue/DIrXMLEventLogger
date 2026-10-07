@@ -1,0 +1,8 @@
+<nds dtdversion="4.0" ndsversion="8.x">
+  <input>
+    <rename class-name="User" event-id="edir3#20261007141900#1#5" old-src-dn="\TREE\data\users\jdoe" remove-old-name="true" src-dn="\TREE\data\users\john.doe" src-entry-id="35868" timestamp="1759846740#1">
+      <association state="associated">jdoe</association>
+      <new-name>john.doe</new-name>
+    </rename>
+  </input>
+</nds>

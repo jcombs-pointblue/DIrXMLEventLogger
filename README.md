@@ -187,6 +187,24 @@ Passwords are masked with `***` before anything is converted or stored, so neith
 
 Documents logged through PolicyLogger are masked the same way. DSTrace output at level 3 shows the masked document as well.
 
+### Rebuilding XML from the JSON
+
+`JsonToXmlConverter` turns a row's `eventjson` back into an XDS document, for rows stored with `storeXML=false`. Tests convert one document of each event type (add, modify, delete, sync, rename, move) to JSON and back, and check that the event element comes back with the same elements, attributes and text.
+
+The rebuilt document is equivalent, not identical. **What the JSON does not keep:**
+
+- **The envelope:** the `<nds>` attributes, `<source>`, any other elements in `<input>` besides the event, and comments and processing instructions. The rebuilt document always has `<nds dtdversion="4.0" ndsversion="8.x"><input>`.
+- **Order:** the order of attributes, `<add-attr>`/`<modify-attr>` elements and `<operation-data>` children. The order of values within one attribute is kept.
+- **Whitespace:** text is trimmed.
+- **`<operation-data>`:** only the text of its direct children. Their attributes and any nested elements are lost, and repeated child names keep only the last value.
+- **Repeats:** only the first `<association>` and `<password>` of the event.
+- **Structured values:** component order and repeated component names.
+- **Modify grouping:** several `<add-value>` or `<remove-value>` groups in one `<modify-attr>` come back as one of each, in the order `<remove-all-values>`, `<remove-value>`, `<add-value>`.
+- **Unknown elements:** child elements a converter does not handle are dropped. Handled elements: `association`, `add-attr` (add, sync), `modify-attr` (modify), `password` (add, modify), `status` (sync), `new-name` (rename), `parent` (move) and `operation-data`.
+- **Passwords:** stored as `***`, so a rebuilt document never carries the real password.
+
+Rows with `schemaversion` 1 lose more. Their modify values were stored as plain text without `type` or `timestamp` (several values in one `<add-value>` were run together), rename events had no `new-name`, and a move's parent association was stored as text.
+
 ### Error handling
 
 | SQL State | Behavior |
