@@ -131,7 +131,7 @@ This produces `target/dirxml-event-logger-<version>.jar` and copies the PostgreS
 
 The driver compiles against the Identity Manager driver API in one of two ways:
 
-- **Real engine jars:** if `lib/dirxml.jar` exists, the build uses it. Copy it from an IDM install or point at another directory with `-Didm.lib=/path/to/jars`. The `lib/*.jar` files are gitignored, so they are never committed.
+- **Real engine jars:** if `lib/dirxml.jar` exists, the build uses it along with `lib/dirxml_misc.jar` (both are needed). Copy them from an IDM install, or point at another directory with `-Didm.lib=/path/to/jars -P 'engine,!stubs'` (the profile is only switched on automatically by `lib/dirxml.jar`). The `lib/*.jar` files are gitignored, so they are never committed.
 - **Stubs:** otherwise the build uses `idm-api-stubs/`, signature-only stand-ins for the seven API types the driver uses. CI and releases build this way.
 
 Engine classes are never packaged in the jar, whichever way it was built. Building once with the real `dirxml.jar` confirms the stubs match the API.

@@ -121,6 +121,14 @@
                     <scope>system</scope>
                     <systemPath>${idm.lib}/dirxml.jar</systemPath>
                 </dependency>
+                <!-- ShimParams in dirxml.jar references MessageSource from dirxml_misc.jar. -->
+                <dependency>
+                    <groupId>com.netiq.idm</groupId>
+                    <artifactId>dirxml_misc</artifactId>
+                    <version>local</version>
+                    <scope>system</scope>
+                    <systemPath>${idm.lib}/dirxml_misc.jar</systemPath>
+                </dependency>
             </dependencies>
         </profile>
         <!-- No engine jars (CI, releases): compile against idm-api-stubs, which never ship. -->
