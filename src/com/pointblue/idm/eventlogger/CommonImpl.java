@@ -2,10 +2,11 @@ package com.pointblue.idm.eventlogger;
 
 import com.novell.nds.dirxml.driver.Trace;
 import com.novell.nds.dirxml.driver.XmlDocument;
-import com.novell.xsl.util.Util;
 import org.w3c.dom.*;
 import org.w3c.dom.CharacterData;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -200,7 +201,14 @@ public class CommonImpl {
      * @return the root {@code <nds>} element
      */
     protected Element createXdsDocument() {
-        Document returnDoc = com.novell.xml.dom.DocumentFactory.newDocument();
+        Document returnDoc;
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            returnDoc = factory.newDocumentBuilder().newDocument();
+        } catch (ParserConfigurationException e) {
+            throw new IllegalStateException("No XML parser available", e);
+        }
         Element nds = returnDoc.createElementNS(null, "nds");
         returnDoc.appendChild(nds);
         nds.setAttributeNS(null, "dtdversion", "4.0");
@@ -222,7 +230,7 @@ public class CommonImpl {
             if (childNode.getNodeType() == Node.ELEMENT_NODE
                     && childNode.getNodeName().equals("association"))
             {
-                return com.novell.xsl.util.Util.getXSLStringValue(childNode);
+                return getText(childNode);
             }
             childNode = childNode.getNextSibling();
         }
@@ -338,17 +346,17 @@ public class CommonImpl {
         Element server = (Element) authInfo.getElementsByTagNameNS(null, "server").item(0);
         if (server != null)
         {
-            params.authenticationContext = com.novell.xsl.util.Util.getXSLStringValue(server);
+            params.authenticationContext = getText(server);
         }
         Element user = (Element) authInfo.getElementsByTagNameNS(null, "user").item(0);
         if (user != null)
         {
-            params.authenticationId = com.novell.xsl.util.Util.getXSLStringValue(user);
+            params.authenticationId = getText(user);
         }
         Element password = (Element) authInfo.getElementsByTagNameNS(null, "password").item(0);
         if (password != null)
         {
-            params.applicationPassword = com.novell.xsl.util.Util.getXSLStringValue(password);
+            params.applicationPassword = getText(password);
         }
         return params;
     }
@@ -375,10 +383,9 @@ public class CommonImpl {
         ShimParams params = new ShimParams();
         String optionsName = shimName + "-options";
         tracer.trace("Looking for options element: " + optionsName, 3);
-        tracer.trace(initDocument);
         Element optionsElement = (Element) initDocument.getElementsByTagNameNS(null, optionsName).item(0);
 
-        tracer.trace("optionsElement: " + optionsElement);
+        tracer.trace("optionsElement: " + optionsElement, 3);
         extractValues(optionsElement, params, paramDesc);
         String stateName = shimName + "-state";
         Element stateElement = (Element) initDocument.getElementsByTagNameNS(null, stateName).item(0);
@@ -421,7 +428,7 @@ public class CommonImpl {
                 option = (Element) optionsElement.getElementsByTagNameNS(null, paramDesc[i].paramName).item(0);
                 if (option != null)
                 {
-                    String content = com.novell.xsl.util.Util.getXSLStringValue(option);
+                    String content = getText(option);
                     if (content == null || content.length() == 0)
                     {
                         continue;
@@ -429,7 +436,7 @@ public class CommonImpl {
                     if (paramDesc[i].paramType == ShimParamDesc.STRING_TYPE)
                     {
                         params.putStringParam(paramDesc[i].paramName, content);
-                        tracer.trace("Param: " + paramDesc[i].paramName + " :" + content);
+                        tracer.trace("Param: " + paramDesc[i].paramName + " :" + content, 3);
                     } else
                     {
                         try
@@ -445,7 +452,7 @@ public class CommonImpl {
             }
         } else
         {
-            tracer.trace("options element was null");
+            tracer.trace("options element was null", 1);
         }
     }
 
@@ -484,7 +491,7 @@ public class CommonImpl {
         Element heartbeatElement = (Element) optionsElement.getElementsByTagNameNS(null, "pub-heartbeat-interval").item(0);
         if (heartbeatElement == null)
             return 0;
-        String value = Util.getXSLStringValue(heartbeatElement);
+        String value = getText(heartbeatElement);
         try
         {
             interval = Long.parseLong(value);
