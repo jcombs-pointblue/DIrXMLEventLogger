@@ -83,7 +83,7 @@ This creates:
 | `stage` | `varchar` | PolicyLogger rows: `input` or `output`. NULL for the driver's own rows |
 | `schemaversion` | `smallint` | Shape of `eventjson`: `1` for rows written before release 1.0.0 (or by older driver jars), `2` for current rows. The JSON also carries `"schemaVersion": 2` |
 
-Indexes are created on `REVERSE(srcdn)` (subtree queries), `(srcdn, cachedtime)` (object timelines), `cachedtime` (recent events, dashboard, date filters and purge jobs), `eventid`, and `(srcdriver, policy)` (filtering by driver and policy). The script is safe to re-run on an existing database: it only creates what is missing.
+Indexes are created on `srcdn` and `REVERSE(srcdn)` with `text_pattern_ops` (subtree and DN-suffix `LIKE` queries under any collation), `(srcdn, cachedtime)` (object timelines), `cachedtime` (recent events, dashboard, date filters and purge jobs), `eventid`, and `(srcdriver, policy)` (filtering by driver and policy). The script is safe to re-run on an existing database: it only creates what is missing.
 
 ### Upgrading an existing database
 
@@ -454,13 +454,23 @@ If you run more than one EventLoggerDriver (e.g., logging to different databases
 
 ## Useful PostgreSQL Queries
 
-Find events for a DN subtree (uses the reverse index):
+Find events for a DN subtree. DNs contain backslashes, which are also `LIKE`'s escape character, so turn escaping off with `ESCAPE ''`. End the container with `\` so `\users` does not also match `\users2`:
 
 ```sql
 SELECT * FROM dxmlevent
-WHERE reverse(srcdn) LIKE reverse('%\novell\Users%')
+WHERE srcdn LIKE '\novell\Users\' || '%' ESCAPE ''
 ORDER BY cachedtime;
 ```
+
+Find an object by the end of its DN (uses the reverse index):
+
+```sql
+SELECT * FROM dxmlevent
+WHERE reverse(srcdn) LIKE reverse('%' || '\Users\jdoe') ESCAPE ''
+ORDER BY cachedtime;
+```
+
+[docs/store.md](docs/store.md) lists every column, the JSON shape of each event type, and the query patterns for programs that read the store.
 
 Find all events where a specific attribute was modified:
 
