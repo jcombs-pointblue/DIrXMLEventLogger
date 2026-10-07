@@ -1,5 +1,6 @@
 import os
-from datetime import datetime, timedelta
+import re
+from contextlib import contextmanager
 
 import psycopg2
 import psycopg2.extras
@@ -21,8 +22,38 @@ DB_CONFIG = {
 TABLE_NAME = os.environ.get("TABLE_NAME", "public.dxmlevent")
 
 
-def get_db():
-    return psycopg2.connect(**DB_CONFIG, cursor_factory=psycopg2.extras.RealDictCursor)
+MAX_LIMIT = 1000
+
+
+@contextmanager
+def db_cursor():
+    """Yield a cursor and always close the connection afterwards.
+
+    psycopg2's own ``with conn`` only ends the transaction; it does not close
+    the connection, which leaks one connection per request.
+    """
+    conn = psycopg2.connect(**DB_CONFIG, cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        with conn, conn.cursor() as cur:
+            yield cur
+    finally:
+        conn.close()
+
+
+def int_arg(name, default, minimum=1, maximum=None):
+    """Read an integer query parameter, falling back to default and clamping to range."""
+    try:
+        value = int(request.args.get(name, default))
+    except (TypeError, ValueError):
+        value = default
+    value = max(minimum, value)
+    return min(value, maximum) if maximum is not None else value
+
+
+@app.route("/health")
+def health():
+    """Liveness check for container orchestrators."""
+    return "ok"
 
 
 @app.route("/")
@@ -37,7 +68,7 @@ def search_objects():
     if len(q) < 2:
         return jsonify([])
 
-    with get_db() as conn, conn.cursor() as cur:
+    with db_cursor() as cur:
         cur.execute(
             f"""SELECT DISTINCT srcdn FROM {TABLE_NAME}
                 WHERE srcdn ILIKE %s
@@ -57,7 +88,7 @@ def timeline():
     src_driver = request.args.get("src_driver", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
-    page = int(request.args.get("page", "1"))
+    page = int_arg("page", 1)
     per_page = 50
 
     if not srcdn:
@@ -87,7 +118,7 @@ def timeline():
 
     where = " AND ".join(conditions)
 
-    with get_db() as conn, conn.cursor() as cur:
+    with db_cursor() as cur:
         # Get filter options for this object
         cur.execute(f"SELECT DISTINCT eventtype FROM {TABLE_NAME} WHERE srcdn = %s ORDER BY eventtype", (srcdn,))
         event_types = [r["eventtype"] for r in cur.fetchall()]
@@ -142,7 +173,7 @@ def event_detail():
     if not event_id:
         return "Event ID required", 400
 
-    with get_db() as conn, conn.cursor() as cur:
+    with db_cursor() as cur:
         cur.execute(
             f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
                        eventjson, cachedtime, xmlevent, srcdriver
@@ -166,7 +197,7 @@ def event_detail():
         changes = extract_modify_changes(event["eventjson"])
 
     # Get previous and next events for this object
-    with get_db() as conn, conn.cursor() as cur:
+    with db_cursor() as cur:
         cur.execute(
             f"""SELECT eventid, eventtype, cachedtime FROM {TABLE_NAME}
                 WHERE srcdn = %s AND cachedtime <= %s AND eventid != %s
@@ -194,7 +225,7 @@ def search():
     event_type = request.args.get("event_type", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
-    page = int(request.args.get("page", "1"))
+    page = int_arg("page", 1)
     per_page = 50
 
     if not q:
@@ -217,7 +248,7 @@ def search():
 
     where = " AND ".join(conditions)
 
-    with get_db() as conn, conn.cursor() as cur:
+    with db_cursor() as cur:
         cur.execute(f"SELECT COUNT(*) as cnt FROM {TABLE_NAME} WHERE {where}", params)
         total = cur.fetchone()["cnt"]
         pages = max(1, (total + per_page - 1) // per_page)
@@ -256,7 +287,7 @@ def export_timeline():
     if not srcdn:
         return "srcdn required", 400
 
-    with get_db() as conn, conn.cursor() as cur:
+    with db_cursor() as cur:
         cur.execute(
             f"""SELECT eventid, classname, srcdn, srcentryid, eventtype,
                        eventjson::text as eventjson, cachedtime, xmlevent, srcdriver
@@ -266,6 +297,8 @@ def export_timeline():
             (srcdn,),
         )
         events = cur.fetchall()
+
+    safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", srcdn.split("\\")[-1]) or "export"
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=["eventid", "cachedtime", "eventtype",
@@ -278,14 +311,14 @@ def export_timeline():
     return Response(
         output.getvalue(),
         mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=timeline_{srcdn.split(chr(92))[-1]}.csv"},
+        headers={"Content-Disposition": f'attachment; filename="timeline_{safe_name}.csv"'},
     )
 
 
 @app.route("/recent")
 def recent():
     """Show the most recent events across all objects."""
-    limit = int(request.args.get("limit", "100"))
+    limit = int_arg("limit", 100, maximum=MAX_LIMIT)
     event_type = request.args.get("event_type", "").strip()
     src_driver = request.args.get("src_driver", "").strip()
 
@@ -301,7 +334,7 @@ def recent():
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
-    with get_db() as conn, conn.cursor() as cur:
+    with db_cursor() as cur:
         cur.execute(f"SELECT DISTINCT eventtype FROM {TABLE_NAME} ORDER BY eventtype")
         event_types = [r["eventtype"] for r in cur.fetchall()]
 
@@ -334,7 +367,7 @@ def recent():
 @app.route("/stats")
 def stats():
     """Dashboard with event statistics."""
-    with get_db() as conn, conn.cursor() as cur:
+    with db_cursor() as cur:
         cur.execute(f"SELECT COUNT(*) as total FROM {TABLE_NAME}")
         total = cur.fetchone()["total"]
 
@@ -414,4 +447,6 @@ def extract_values(value_list):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True, port=5000)
+    # Local development only. Containers run under gunicorn (see Dockerfile).
+    app.run(host="127.0.0.1", port=5000,
+            debug=os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true"))

@@ -368,8 +368,9 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
             return createStatusDocument(STATUS_RETRY, t.getMessage());
         } catch (XDSParseException e)
         {
-            tracer.trace("Error processing event: " + e.getMessage(), 1);
-            return createStatusDocument(STATUS_RETRY, e.getMessage());
+            // A malformed document will never parse, so retrying would block the queue forever
+            tracer.trace("Error parsing event: " + e.getMessage(), 1);
+            return createStatusDocument(STATUS_ERROR, "Unparseable event: " + e.getMessage());
         } catch (Exception e)
         {
             tracer.trace("Error processing event: " + e.getMessage(), 1);
