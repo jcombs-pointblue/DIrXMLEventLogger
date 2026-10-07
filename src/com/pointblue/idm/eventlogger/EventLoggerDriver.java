@@ -1,18 +1,12 @@
 package com.pointblue.idm.eventlogger;
 
 import com.novell.nds.dirxml.driver.*;
-import com.novell.nds.dirxml.driver.xds.XDSCommandDocument;
-import com.novell.nds.dirxml.driver.xds.XDSParseException;
-import com.pointblue.idm.eventlogger.json.JSONObject;
-import com.pointblue.idm.eventlogger.xds2json.*;
-import org.postgresql.util.PGobject;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 
 import java.sql.*;
-import java.time.Instant;
 
 
 /**
@@ -321,19 +315,18 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     public XmlDocument execute(XmlDocument doc, XmlQueryProcessor query) {
         try
         {
-            tracer.trace("doc: " + new XmlDocument(doc.getDocumentNS()).getDocumentString(), 3);
-            XDSCommandDocument commands = new XDSCommandDocument(doc);
-            if (commands.containsIdentityQuery())
+            if (isIdentityQuery(doc.getDocument()))
             {
                 XmlDocument identXDS = getDriverIdentification("query-driver-ident");
                 addStatusElement((Element) identXDS.getDocument().getElementsByTagName("output").item(0), 0, "", "query-driver-ident");
                 return identXDS;
             }
-            JSONObject eventJSON = convertEvent(doc);
+            EventRecord record = EventRecords.prepare(doc.getDocumentString());
+            tracer.trace("doc (passwords masked): " + record.xml, 3);
+            tracer.trace("Converted event to JSON: " + record.json.toString(2), 3);
 
-            tracer.trace("Converted event to JSON: " + eventJSON.toString(2), 3);
-
-            writeEventToDB(eventJSON, doc);
+            tracer.trace("Writing event to database", 3);
+            EventRecords.insert(getConnection(), tableName, record, logXML, driverDN);
 
         } catch (SQLException t)
         {
@@ -366,18 +359,34 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
                 return createStatusDocument(STATUS_RETRY, "Connection error: " + t.getMessage());
             }
             return createStatusDocument(STATUS_RETRY, t.getMessage());
-        } catch (XDSParseException e)
-        {
-            // A malformed document will never parse, so retrying would block the queue forever
-            tracer.trace("Error parsing event: " + e.getMessage(), 1);
-            return createStatusDocument(STATUS_ERROR, "Unparseable event: " + e.getMessage());
         } catch (Exception e)
         {
+            // Unparseable or unsupported documents will never succeed, so don't retry them
             tracer.trace("Error processing event: " + e.getMessage(), 1);
             return createStatusDocument(STATUS_ERROR, e.getMessage());
         }
 
         return createStatusDocument(STATUS_SUCCESS, "Event Logged");
+    }
+
+    /**
+     * Returns true if the document asks for the driver's identity: a {@code <query>}
+     * whose {@code <search-class>} is {@code __driver_identification_class__}.
+     *
+     * @param doc the subscriber command document
+     * @return true for a driver identification query
+     */
+    static boolean isIdentityQuery(Document doc) {
+        NodeList classes = doc.getElementsByTagName("search-class");
+        for (int i = 0; i < classes.getLength(); i++) {
+            Element searchClass = (Element) classes.item(i);
+            if ("__driver_identification_class__".equals(searchClass.getAttribute("class-name"))
+                    && searchClass.getParentNode() != null
+                    && "query".equals(searchClass.getParentNode().getNodeName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -496,51 +505,6 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
     }
 
     /**
-     * Writes an event to the database as a row in the configured table.
-     * <p>
-     * Extracts the event ID, class name, source DN, entry ID, event type, and
-     * timestamp from the JSON, then inserts them along with the full JSON payload
-     * and (optionally) the original XML document.
-     *
-     * @param eventJSON the event data as a JSON object
-     * @param doc       the original XDS XML document
-     * @throws SQLException if the database insert fails
-     */
-    private void writeEventToDB(JSONObject eventJSON, XmlDocument doc) throws SQLException {
-        tracer.trace("Writing event to database", 3);
-
-        Connection conn = getConnection();
-        String sql = "INSERT INTO " + tableName + " (\"eventid\", \"classname\", \"srcdn\", \"srcentryid\", \"eventtype\", \"eventjson\", \"cachedtime\", \"xmlevent\", \"srcdriver\") VALUES(?,?,?,?,?,?,?,?,?);";
-
-        try (PreparedStatement pstmt = conn.prepareStatement(sql))
-        {
-            long epochSeconds = Long.parseLong(eventJSON.getString("timestamp").split("#")[0]);
-            Timestamp timestamp = Timestamp.from(Instant.ofEpochSecond(epochSeconds));
-            pstmt.setTimestamp(7, timestamp);
-            pstmt.setString(1, eventJSON.getString("event-id"));
-            pstmt.setString(2, eventJSON.getString("class-name"));
-            pstmt.setString(3, eventJSON.getString("src-dn"));
-            pstmt.setString(4, eventJSON.getString("src-entry-id"));
-            pstmt.setString(5, eventJSON.getString("event-type"));
-
-            PGobject jsonObject = new PGobject();
-            jsonObject.setType("json");
-            jsonObject.setValue(eventJSON.toString());
-            pstmt.setObject(6, jsonObject);
-
-            if (logXML)
-            {
-                pstmt.setString(8, doc.getDocumentString());
-            } else
-            {
-                pstmt.setNull(8, Types.VARCHAR);
-            }
-            pstmt.setString(9, driverDN);
-            pstmt.executeUpdate();
-        }
-    }
-
-    /**
      * Populates a driver identification instance element in the output document.
      * Sets the driver ID ("EventLogger"), version, minimum activation version,
      * and query-ex-supported flag.
@@ -585,71 +549,5 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
         value.setAttributeNS(null, "type", "state");
         text = doc.createTextNode("false");
         value.appendChild(text);
-    }
-
-    /**
-     * Converts an XDS event document to a JSON object by detecting the event type
-     * and delegating to the appropriate {@link BaseEventConverter} subclass.
-     * <p>
-     * Supported event types: add, modify, delete, sync, rename, move.
-     *
-     * @param xmlDoc the XDS document containing the event
-     * @return a JSON object representing the event
-     * @throws Exception                if conversion fails
-     * @throws IllegalArgumentException if the event type is not recognized
-     */
-    private JSONObject convertEvent(XmlDocument xmlDoc) throws Exception {
-        Document doc = xmlDoc.getDocument();
-        String xmlString = xmlDoc.getDocumentString();
-
-        String[][] eventTypes = {
-            {"add", "add"},
-            {"modify", "modify"},
-            {"delete", "delete"},
-            {"sync", "sync"},
-            {"rename", "rename"},
-            {"move", "move"}
-        };
-
-        for (String[] eventType : eventTypes)
-        {
-            NodeList nodes = doc.getElementsByTagName(eventType[0]);
-            if (nodes.getLength() > 0)
-            {
-                tracer.trace("Processing " + eventType[1] + " event", 3);
-                BaseEventConverter converter = getConverterForType(eventType[1]);
-                String jsonString = converter.convertToJson(xmlString);
-                return new JSONObject(jsonString);
-            }
-        }
-
-        throw new IllegalArgumentException("Unsupported event type. Supported types: add, modify, delete, sync, rename, move.");
-    }
-
-    /**
-     * Returns the appropriate event converter for the given event type string.
-     *
-     * @param eventType the event type name (add, modify, delete, sync, rename, move)
-     * @return a new converter instance for the specified type
-     * @throws IllegalArgumentException if the event type is not recognized
-     */
-    private BaseEventConverter getConverterForType(String eventType) {
-        switch (eventType)
-        {
-            case "add":
-                return new AddEventConverter();
-            case "modify":
-                return new ModifyEventConverter();
-            case "delete":
-                return new DeleteEventConverter();
-            case "sync":
-                return new SyncEventConverter();
-            case "rename":
-                return new RenameEventConverter();
-            case "move":
-                return new MoveEventConverter();
-            default:
-                throw new IllegalArgumentException("Unknown event type: " + eventType);
-        }
     }
 }
