@@ -55,8 +55,8 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
 
     };
 
-    /** Current driver version string, returned in driver identification queries. */
-    private static final String DRIVER_VERSION_VALUE = "1.0.0";
+    /** Release version of this jar; kept in step with pom.xml (VersionTest checks it). */
+    public static final String VERSION = "1.0.0";
 
     /** Minimum activation version required for this driver. */
     private static final String DRIVER_MIN_ACTIVATION_VERSION = "0";
@@ -122,6 +122,7 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
      */
     public XmlDocument init(XmlDocument initParameters) {
 
+        tracer.trace("DirXML Event Logger version " + VERSION, 0);
         authParams = getAuthenticationParams(initParameters.getDocumentNS());
 
         params = getShimParams(initParameters.getDocumentNS(), "driver", DRIVER_PARAMS);
@@ -531,7 +532,7 @@ public class EventLoggerDriver extends CommonImpl implements DriverShim, Publica
         value = doc.createElementNS(null, "value");
         attr.appendChild(value);
         value.setAttributeNS(null, "type", "string");
-        text = doc.createTextNode(DRIVER_VERSION_VALUE);
+        text = doc.createTextNode(VERSION);
         value.appendChild(text);
         attr = doc.createElementNS(null, "attr");
         instance.appendChild(attr);

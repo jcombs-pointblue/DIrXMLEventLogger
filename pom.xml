@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.pointblue.idm</groupId>
+    <artifactId>dirxml-event-logger</artifactId>
+    <!-- Keep in step with EventLoggerDriver.VERSION (VersionTest checks it). -->
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <name>DirXML Event Logger</name>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Java 8 bytecode runs on every supported engine JVM. -->
+        <maven.compiler.release>8</maven.compiler.release>
+        <maven.compiler.testRelease>17</maven.compiler.testRelease>
+        <!-- Proprietary engine jars, supplied locally and gitignored. Override with -Didm.lib=... -->
+        <idm.lib>${project.basedir}/lib</idm.lib>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.7</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <sourceDirectory>src</sourceDirectory>
+        <testSourceDirectory>test/java</testSourceDirectory>
+        <testResources>
+            <testResource>
+                <directory>test/resources</directory>
+            </testResource>
+        </testResources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <excludes>
+                        <!-- Offline test jigs need more of the engine API; build them in the IDE. -->
+                        <exclude>com/pointblue/idm/eventlogger/offline/**</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <project.version>${project.version}</project.version>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+                <configuration>
+                    <excludes>
+                        <!-- Never ship engine API classes, real or stub. -->
+                        <exclude>com/novell/**</exclude>
+                    </excludes>
+                    <archive>
+                        <manifestEntries>
+                            <Implementation-Title>${project.name}</Implementation-Title>
+                            <Implementation-Version>${project.version}</Implementation-Version>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!-- Puts the JDBC driver next to the shim jar: both go on the engine classpath. -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-jdbc-driver</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeArtifactIds>postgresql</includeArtifactIds>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Real engine jars in lib/ (or -Didm.lib): compile against them. -->
+        <profile>
+            <id>engine</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/lib/dirxml.jar</exists>
+                </file>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.netiq.idm</groupId>
+                    <artifactId>dirxml</artifactId>
+                    <version>local</version>
+                    <scope>system</scope>
+                    <systemPath>${idm.lib}/dirxml.jar</systemPath>
+                </dependency>
+            </dependencies>
+        </profile>
+        <!-- No engine jars (CI, releases): compile against idm-api-stubs, which never ship. -->
+        <profile>
+            <id>stubs</id>
+            <activation>
+                <file>
+                    <missing>${basedir}/lib/dirxml.jar</missing>
+                </file>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-idm-api-stubs</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>idm-api-stubs/src/main/java</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

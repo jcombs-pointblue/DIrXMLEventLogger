@@ -28,7 +28,10 @@ src/com/pointblue/idm/eventlogger/
     RenameEventConverter.java Handles <rename> events
     MoveEventConverter.java   Handles <move> events
     JsonToXmlConverter.java   Reverse converter (JSON back to XML)
-  offline/                    Test harnesses for offline development
+  offline/                    Test harnesses for offline development (IDE only)
+test/                         Unit and database tests (mvn test)
+idm-api-stubs/                Compile-only engine API stand-ins (never packaged)
+pom.xml                       Maven build
 web/
   app.py                      Flask web application
   requirements.txt            Python dependencies
@@ -88,12 +91,38 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO eventlogger_
 
 ## Driver Installation
 
+### Getting the JAR
+
+Download `dirxml-event-logger-<version>.jar` and `postgresql-<version>.jar` from the [GitHub releases](https://github.com/jcombs-pointblue/DIrXMLEventLogger/releases), or build them yourself.
+
 ### Building the JAR
 
-1. Compile the Java source files against the Identity Manager driver SDK JARs (dirxml_misc.jar, nxsl.jar, etc.) and the PostgreSQL JDBC driver (`lib/postgresql-42.7.7.jar`).
-2. Package the compiled classes into `DIrXMLEventLogger.jar`.
-3. Deploy the JAR to the Identity Manager server's driver classpath (typically `/opt/novell/eDirectory/lib/dirxml/classes/` and restart eDirectory
-4. Deploy `lib/postgresql-42.7.7.jar` to the same classpath location if not already present.
+Requires JDK 17 or newer and Maven 3.9. The jar is built as Java 8 bytecode, so it runs on any engine JVM.
+
+```bash
+mvn package
+```
+
+This produces `target/dirxml-event-logger-<version>.jar` and copies the PostgreSQL JDBC driver to `target/postgresql-<version>.jar`. After the first build has downloaded the dependencies, `mvn -o package` works offline.
+
+The driver compiles against the Identity Manager driver API in one of two ways:
+
+- **Real engine jars:** if `lib/dirxml.jar` exists, the build uses it. Copy it from an IDM install or point at another directory with `-Didm.lib=/path/to/jars`. The `lib/*.jar` files are gitignored, so they are never committed.
+- **Stubs:** otherwise the build uses `idm-api-stubs/`, signature-only stand-ins for the seven API types the driver uses. CI and releases build this way.
+
+Engine classes are never packaged in the jar, whichever way it was built. Building once with the real `dirxml.jar` confirms the stubs match the API.
+
+### Deploying the JAR
+
+1. Copy `dirxml-event-logger-<version>.jar` and `postgresql-<version>.jar` to the engine's driver classpath (typically `/opt/novell/eDirectory/lib/dirxml/classes/`).
+2. Restart eDirectory (`ndsmanage stopall && ndsmanage startall`, or restart the engine container).
+3. The driver writes `DirXML Event Logger version <version>` to the trace on startup, so you can confirm which build is loaded.
+
+### Releasing
+
+1. Set the new version in `pom.xml` and `EventLoggerDriver.VERSION` (the build fails if they differ), and move the `Unreleased` notes in `CHANGELOG.md` under the new version.
+2. Tag and push: `git tag v<version> && git push origin v<version>`.
+3. The Release workflow builds the jar, checks the tag matches the pom, and publishes a GitHub release with both jars attached, using the changelog entry as release notes.
 
 ### Importing the driver in Designer
 
@@ -260,7 +289,7 @@ When the EventLoggerDriver starts, it automatically registers itself with the Po
 
 ### Setup
 
-1. Deploy `DIrXMLEventLogger.jar` and the PostgreSQL JDBC driver to the Identity Manager classpath (see [Building the JAR](#building-the-jar)).
+1. Deploy the Event Logger jar and the PostgreSQL JDBC driver to the Identity Manager classpath (see [Deploying the JAR](#deploying-the-jar)).
 2. Start the EventLoggerDriver. It registers itself automatically.
 3. Add an ECMAScript policy action to the driver whose events you want to capture.
 
