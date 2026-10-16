@@ -12,6 +12,17 @@ The companion web UI provides a forensic investigation interface: search for any
 
 ![Recent Events page listing the newest events across all objects with type and driver filters](media/EventList.png)
 
+## Quick start
+
+You need a PostgreSQL database for the events. Pick one:
+
+| | What you run | Database |
+|---|---|---|
+| **Bundled database** (easiest; good for development and labs) | `cd docker && cp .env.example .env && docker compose up -d` | An optional PostgreSQL container started next to the web UI, with the table, accounts and cleanup job set up for you |
+| **Your own PostgreSQL** | The same, after deleting `COMPOSE_PROFILES=db` from `.env` and setting `DB_HOST` | Set up once by hand, see [Database Setup](#database-setup) |
+
+Either way the web UI is at http://localhost:5000. Then [deploy the driver](#driver-installation) and point it at the database. Details: [Running with Docker](#running-with-docker-recommended).
+
 ## Components
 
 ```
@@ -38,7 +49,7 @@ web/
   Dockerfile                  Web UI container image
   templates/                  Jinja2 templates
 docker/
-  compose.yml                 Web UI + optional PostgreSQL with pg_cron (--profile db)
+  compose.yml                 Web UI + optional PostgreSQL container with pg_cron
   engine.example.yml          Mounting the jars into an engine container
   postgres/                   PostgreSQL + pg_cron image
   postgres-init/              First-start accounts and cleanup job for the bundled database
@@ -49,6 +60,8 @@ EventLogger.xml               Designer driver export for import
 ```
 
 ## Database Setup
+
+> **Using the bundled database container?** Skip this section. The container creates the database, table, indexes and accounts on first start (see [Running with Docker](#running-with-docker-recommended)).
 
 ### 1. Create the database
 
@@ -227,7 +240,14 @@ The web UI is a Flask application for browsing and searching the event database.
 
 ### Running with Docker (recommended)
 
-`docker/compose.yml` runs the web UI and, optionally, a ready-to-use PostgreSQL. It works on Windows, macOS (Intel and Apple Silicon) and Linux with [Docker Desktop](https://www.docker.com/products/docker-desktop/), Docker Engine or Podman (`podman compose`).
+`docker/compose.yml` runs the web UI and an **optional PostgreSQL container**. It works on Windows, macOS (Intel and Apple Silicon) and Linux with [Docker Desktop](https://www.docker.com/products/docker-desktop/), Docker Engine or Podman (`podman compose`).
+
+| Setup | `.env` | Containers |
+|---|---|---|
+| Bundled database (default) | `COMPOSE_PROFILES=db`, `DB_HOST=postgres` | `web` + `postgres` |
+| Your own PostgreSQL | delete `COMPOSE_PROFILES`, set `DB_HOST` to your server | `web` only |
+
+The web image (`ghcr.io/jcombs-pointblue/dirxmleventlogger-web`) contains only the web UI, never a database.
 
 1. Copy the example settings and replace every `change_me` value:
 
@@ -238,13 +258,13 @@ cp .env.example .env
 
    `EVENTLOGGER_VERSION` picks the release. The web UI image and the engine jars are both taken from that release, so they always match.
 
-2. Start the stack.
-
-   **With the bundled database** (good for driver development and labs). Leave `DB_HOST=postgres`:
+2. Start the stack:
 
    ```bash
-   docker compose --profile db up -d
+   docker compose up -d
    ```
+
+   **With the bundled database** (the default `.env`), this also starts PostgreSQL 17 with pg_cron. `--profile db` does the same as `COMPOSE_PROFILES=db` if you prefer to keep it out of `.env`.
 
    On first start the database is created with the event table, its indexes, and two accounts:
 
@@ -255,17 +275,13 @@ cp .env.example .env
 
    It also installs [pg_cron](https://github.com/citusdata/pg_cron) and schedules the [size-based cleanup](#size-based-cleanup). At `PURGE_SCHEDULE` (default 04:00 UTC daily), the oldest events are deleted until the table is under `EVENT_MAX_SIZE_MB` (default 1000).
 
-   Point the driver at it: **Authentication ID** `eventlogger_writer`, **Authentication Context** `<docker-host>:5432/idmEvent`, **Application Password** the `WRITER_PASSWORD` value. Data is kept in the `pgdata` volume. Accounts and the cleanup job are only created on first start, so to change them later use SQL, or delete the volume (`docker compose --profile db down -v`, which deletes all events).
+   Point the driver at it: **Authentication ID** `eventlogger_writer`, **Authentication Context** `<docker-host>:5432/idmEvent`, **Application Password** the `WRITER_PASSWORD` value. Data is kept in the `pgdata` volume. Accounts and the cleanup job are only created on first start, so to change them later use SQL, or delete the volume (`docker compose down -v`, which deletes all events).
 
-   **With an existing database.** Set `DB_HOST` to your PostgreSQL server and create the read-only user as shown in [Database Setup](#3-create-a-read-only-user-for-the-web-ui), then:
-
-   ```bash
-   docker compose up -d
-   ```
+   **With your own PostgreSQL**, delete `COMPOSE_PROFILES=db` from `.env`, set `DB_HOST` to your server, and create the table and read-only user as shown in [Database Setup](#database-setup). `docker compose up -d` then starts only the web UI.
 
 3. Open http://localhost:5000 (change the port with `WEB_PORT`).
 
-`docker compose pull` fetches the published web image (`linux/amd64` and `linux/arm64`, from GitHub Container Registry). `docker compose up -d --build` builds it from source instead. The bundled PostgreSQL image is always built locally, since it is `postgres:17` plus pg_cron. To stop: `docker compose --profile db down`.
+`docker compose pull` fetches the published web image (`linux/amd64` and `linux/arm64`, from GitHub Container Registry). `docker compose up -d --build` builds it from source instead. The bundled PostgreSQL image is always built locally, since it is `postgres:17` plus pg_cron. To stop: `docker compose down`.
 
 The web container runs under gunicorn as a non-root user and exposes `/health` for health checks.
 

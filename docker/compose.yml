@@ -1,7 +1,10 @@
 # Run from this directory, after `cp .env.example .env`:
-#   Web UI only (existing database):     docker compose up -d
-#   Web UI + bundled PostgreSQL:          docker compose --profile db up -d
-#   Download the jars for the engine:     docker compose run --rm fetch-jars
+#   docker compose up -d                    web UI + the optional PostgreSQL below (as .env.example ships)
+#   docker compose run --rm fetch-jars      download the jars for an engine container
+#
+# The PostgreSQL service is optional. It runs when the "db" profile is on: .env.example
+# turns it on with COMPOSE_PROFILES=db (or pass --profile db). To use your own database
+# instead, delete COMPOSE_PROFILES from .env and set DB_HOST to your server.
 # Works with Docker Desktop (Windows/macOS), Docker Engine and Podman (podman compose).
 
 services:
@@ -20,6 +23,9 @@ services:
       TABLE_NAME: ${TABLE_NAME:-public.dxmlevent}
     restart: unless-stopped
 
+  # OPTIONAL bundled database (profile "db"): PostgreSQL 17 + pg_cron, built locally.
+  # First start creates the event table, the writer and reader accounts, and the
+  # size-based cleanup job. Data lives in the pgdata volume.
   postgres:
     build: postgres
     image: dirxmleventlogger-postgres:17-cron
