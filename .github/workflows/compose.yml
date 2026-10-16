@@ -17,12 +17,12 @@ jobs:
       run:
         working-directory: docker
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Start web UI + bundled PostgreSQL (built from source)
+      - name: Start web UI + optional PostgreSQL (on by default in .env.example)
         run: |
           cp .env.example .env
-          docker compose --profile db up -d --build --wait --wait-timeout 180
+          docker compose up -d --build --wait --wait-timeout 180   # .env.example turns on the db profile
 
       - name: Schema, accounts and pg_cron cleanup are in place
         run: |
@@ -46,8 +46,8 @@ jobs:
 
       - name: Logs on failure
         if: failure()
-        run: docker compose --profile db logs
+        run: docker compose logs
 
       - name: Stop
         if: always()
-        run: docker compose --profile db down -v
+        run: docker compose down -v
