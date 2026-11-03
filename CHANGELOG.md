@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-03
+
 ### Changed
 - `docker/.env.example` sets `COMPOSE_PROFILES=db`, so `docker compose up -d` starts the optional
   PostgreSQL container along with the web UI, matching its default `DB_HOST=postgres`. Delete the
@@ -88,6 +90,7 @@ the new jar or web UI (see the README, "Upgrading an existing database").
 First release: the EventLogger driver, PolicyLogger, the Flask web UI and the pg_cron
 cleanup examples.
 
-[Unreleased]: https://github.com/jcombs-pointblue/DIrXMLEventLogger/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/jcombs-pointblue/DIrXMLEventLogger/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/jcombs-pointblue/DIrXMLEventLogger/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/jcombs-pointblue/DIrXMLEventLogger/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/jcombs-pointblue/DIrXMLEventLogger/releases/tag/v1.0.0
